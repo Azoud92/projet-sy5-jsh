@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "cd.h"
+#include "pwd.h"
 #define GREEN_COLOR "\001\033[32m\002"
 #define YELLOW_COLOR "\001\033[33m\002"
 #define NORMAL_COLOR "\001\033[00m\002"
@@ -49,7 +50,7 @@ int main() {
         char *cmdLine = readline(prompt); // provisoire car pas de gestion des jobs pour l'instant
         if (cmdLine == NULL) {
             break;
-        }
+            }
         add_history(cmdLine);
 
         char *cmd = strtok(cmdLine, " ");
@@ -60,11 +61,20 @@ int main() {
 
             if (extraArg != NULL) {
                 fprintf(stderr, "cd: too many arguments\n");
-                continue;
-            if (cd(path) != 0) {
-                fprintf(stderr, "Erreur lors du changement de répertoire vers '%s'\n", path);
+                free(path);
+                free(extraArg);
                 continue;
             }
+            if (cd(path) != 0) {
+                fprintf(stderr, "Erreur lors du changement de répertoire vers '%s'\n", path);
+                free(path);
+                free(extraArg);
+                continue;
+            }
+        }
+
+        else if (cmd != NULL && strcmp(cmd, "pwd") == 0) {
+            pwd();
         }
 
         
