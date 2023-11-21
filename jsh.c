@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include "cd.h"
 #include "pwd.h"
+#include "exit.h"
 #define GREEN_COLOR "\001\033[32m\002"
 #define YELLOW_COLOR "\001\033[33m\002"
 #define NORMAL_COLOR "\001\033[00m\002"
@@ -54,32 +55,57 @@ int main() {
         add_history(cmdLine);
 
         char *cmd = strtok(cmdLine, " ");
+        if (cmd != NULL){
+            if (strcmp(cmd, "cd") == 0) { // Vérifie si la commande est cd 
+                char *path = strtok(NULL, " ");
+                char *extraArg = strtok(NULL, " ");
 
-        if (cmd != NULL && strcmp(cmd, "cd") == 0) {
-            char *path = strtok(NULL, " ");
-            char *extraArg = strtok(NULL, " ");
-
-            if (extraArg != NULL) {
-                fprintf(stderr, "cd: too many arguments\n");
+                if (extraArg != NULL) { // Vérifie si la commande cd est utilisée avec trop d'arguments
+                    fprintf(stderr, "cd: too many arguments\n");
+                    free(path);
+                    free(extraArg);
+                    continue;
+                }
+                if (cd(path) != 0) { // Vérifie si le changement de répertoire s'est bien passé
+                    fprintf(stderr, "Erreur lors du changement de répertoire vers '%s'\n", path);
+                    free(path);
+                    free(extraArg);
+                    continue;
+                }
                 free(path);
                 free(extraArg);
-                continue;
             }
-            if (cd(path) != 0) {
-                fprintf(stderr, "Erreur lors du changement de répertoire vers '%s'\n", path);
-                free(path);
+
+            else if (strcmp(cmd, "pwd") == 0) { // Vérifie si la commande est pwd
+                pwd();
+            }
+
+            else if (strcmp(cmd, "exit") == 0) { // Vérifier si la commande est exit
+                char *exit_code_str = strtok(NULL, " ");
+                char *extraArg = strtok(NULL, " ");
+
+                if (extraArg != NULL) { // Vérifie si la commande exit est utilisée avec trop d'arguments
+                    fprintf(stderr, "exit: too many arguments\n");
+                    free(exit_code_str);
+                    free(extraArg);
+                    continue;
+                }
+                int exit_code = atoi(exit_code_str); // Conversion du code de sortie en int
+                free(exit_code_str);
                 free(extraArg);
-                continue;
+                exit_shell(exit_code); // Fait quitter le programme avec le code de sortie donné
             }
+            
+
+            free(prompt);
+            free(cmdLine);
         }
 
-        else if (cmd != NULL && strcmp(cmd, "pwd") == 0) {
-            pwd();
+        else{
+            free(prompt);
+            free(cmdLine);
+            continue;
         }
-
-        
-        free(prompt);
-        free(cmdLine);
     }
 
     return EXIT_SUCCESS;
