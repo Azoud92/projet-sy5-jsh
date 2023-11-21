@@ -4,6 +4,7 @@
 #include <readline/history.h>
 #include <string.h>
 #include <unistd.h>
+#include "cd.h"
 #define GREEN_COLOR "\001\033[32m\002"
 #define YELLOW_COLOR "\001\033[33m\002"
 #define NORMAL_COLOR "\001\033[00m\002"
@@ -50,6 +51,23 @@ int main() {
             break;
         }
         add_history(cmdLine);
+
+        char *cmd = strtok(cmdLine, " ");
+
+        if (cmd != NULL && strcmp(cmd, "cd") == 0) {
+            char *path = strtok(NULL, " ");
+            char *extraArg = strtok(NULL, " ");
+
+            if (extraArg != NULL) {
+                fprintf(stderr, "cd: too many arguments\n");
+                continue;
+            if (cd(path) != 0) {
+                fprintf(stderr, "Erreur lors du changement de répertoire vers '%s'\n", path);
+                continue;
+            }
+        }
+
+        
         free(prompt);
         free(cmdLine);
     }
