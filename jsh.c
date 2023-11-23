@@ -4,6 +4,8 @@
 #include <readline/history.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "cd.h"
 #include "pwd.h"
 #include "exit.h"
@@ -23,7 +25,6 @@ char *get_prompt(int trunc, int nbJobs) {
         free(prompt);
         exit(EXIT_FAILURE);
     }
-    printf("%s\n", cwd);
 
     int apparent_length = strlen(jobsPrompt) - (strlen(GREEN_COLOR) + strlen(YELLOW_COLOR)) + 2; // + 2 car on a le "$ " qui suit
     if (strlen(cwd) > trunc - apparent_length) {
@@ -62,18 +63,12 @@ int main() {
 
                 if (extraArg != NULL) { // Vérifie si la commande cd est utilisée avec trop d'arguments
                     fprintf(stderr, "cd: too many arguments\n");
-                    free(path);
-                    free(extraArg);
                     continue;
                 }
                 if (cd(path) != 0) { // Vérifie si le changement de répertoire s'est bien passé
-                    fprintf(stderr, "Erreur lors du changement de répertoire vers '%s'\n", path);
-                    free(path);
-                    free(extraArg);
                     continue;
                 }
-                free(path);
-                free(extraArg);
+
             }
 
             else if (strcmp(cmd, "pwd") == 0) { // Vérifie si la commande est pwd
@@ -81,19 +76,46 @@ int main() {
             }
 
             else if (strcmp(cmd, "exit") == 0) { // Vérifier si la commande est exit
-                char *exit_code_str = strtok(NULL, " ");
+                char *exitCodeStr = strtok(NULL, " ");
                 char *extraArg = strtok(NULL, " ");
 
                 if (extraArg != NULL) { // Vérifie si la commande exit est utilisée avec trop d'arguments
                     fprintf(stderr, "exit: too many arguments\n");
-                    free(exit_code_str);
-                    free(extraArg);
                     continue;
                 }
-                int exit_code = atoi(exit_code_str); // Conversion du code de sortie en int
-                free(exit_code_str);
-                free(extraArg);
-                exit_shell(exit_code); // Fait quitter le programme avec le code de sortie donné
+                if (exitCodeStr == NULL) { // Vérifie si la commande exit est utilisée sans argument
+                    exitShell(0);
+                }
+                int exitCode = atoi(exitCodeStr); // Conversion du code de sortie en int
+                exitShell(exitCode); // Fait quitter le programme avec le code de sortie donné
+            }
+
+            else {
+                // Exécution de commandes externes
+                pid_t pid = fork();
+
+                if (pid < 0) {
+                    // Erreur lors de la création du processus
+                    fprintf(stderr, "Erreur lors de la création du processus\n");
+                } 
+                else if (pid == 0) {
+                    char *args[50]; // tableau des arguments de la commande
+                    args[0] = cmd;
+                    int i = 1;
+                    char *arg;
+                    while ((arg = strtok(NULL, " ")) != NULL) {
+                        args[i] = arg;
+                        i++;
+                    }
+                    args[i] = NULL; // Le dernier élément du tableau est NULL
+                    execvp(cmd, args);
+                    // Si on arrive ici, alors execvp a échoué
+                    fprintf(stderr, "Erreur lors de l'exécution de la commande '%s'\n", cmd);
+                    exit(EXIT_FAILURE);
+                } 
+                else {
+                    waitpid(pid, NULL, 0);
+                }
             }
             
 

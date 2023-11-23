@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-char *prev_dir = NULL;
+char *prevDir = NULL;
 
 int cd(char *path) {
     char *home = getenv("HOME");
@@ -12,8 +12,8 @@ int cd(char *path) {
     if (path == NULL) {
         path = home;
     } else if (strcmp(path, "-") == 0) {
-        if (prev_dir) {
-            path = prev_dir;
+        if (prevDir) {
+            path = prevDir;
         } else {
             fprintf(stderr, "cd: OLDPWD not set\n");
             return -1;
@@ -21,8 +21,8 @@ int cd(char *path) {
     }
 
     if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        free(prev_dir);
-        prev_dir = strdup(cwd);
+        free(prevDir);
+        prevDir = strdup(cwd);
     }
 
     if (chdir(path) != 0) {
