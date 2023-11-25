@@ -9,9 +9,12 @@
 #include "cd.h"
 #include "pwd.h"
 #include "exit.h"
+#include "external_commands.h"
 #define GREEN_COLOR "\001\033[32m\002"
 #define YELLOW_COLOR "\001\033[33m\002"
 #define NORMAL_COLOR "\001\033[00m\002"
+
+int lastExitCode = 0;
 
 char *get_prompt(int trunc, int nbJobs) {
     char *prompt = malloc(trunc + 1 + strlen(GREEN_COLOR) + strlen(YELLOW_COLOR) + strlen(NORMAL_COLOR));
@@ -47,88 +50,77 @@ char *get_prompt(int trunc, int nbJobs) {
 }
 
 int main() {
+    rl_outstream = stderr;
     while (1) {
         char *prompt = get_prompt(30, 0);
         char *cmdLine = readline(prompt); // provisoire car pas de gestion des jobs pour l'instant
         if (cmdLine == NULL) {
             break;
-            }
+        }
         add_history(cmdLine);
 
         char *cmd = strtok(cmdLine, " ");
+
         if (cmd != NULL){
-            if (strcmp(cmd, "cd") == 0) { // Vérifie si la commande est cd 
+
+            // --- COMMANDES INTERNES ---
+            if (strcmp(cmd, "cd") == 0) { // Commande "cd"
                 char *path = strtok(NULL, " ");
                 char *extraArg = strtok(NULL, " ");
 
                 if (extraArg != NULL) { // Vérifie si la commande cd est utilisée avec trop d'arguments
                     fprintf(stderr, "cd: too many arguments\n");
-                    continue;
+                    lastExitCode = 1;
                 }
-                if (cd(path) != 0) { // Vérifie si le changement de répertoire s'est bien passé
-                    continue;
+                else {
+                    lastExitCode = cd(path);
                 }
-
             }
 
-            else if (strcmp(cmd, "pwd") == 0) { // Vérifie si la commande est pwd
-                pwd();
+            else if (strcmp(cmd, "pwd") == 0) { // Commande "pwd"
+                lastExitCode = pwd();
             }
 
-            else if (strcmp(cmd, "exit") == 0) { // Vérifier si la commande est exit
+            else if (strcmp(cmd, "exit") == 0) { // Commande "exit"
                 char *exitCodeStr = strtok(NULL, " ");
                 char *extraArg = strtok(NULL, " ");
 
                 if (extraArg != NULL) { // Vérifie si la commande exit est utilisée avec trop d'arguments
                     fprintf(stderr, "exit: too many arguments\n");
+                    lastExitCode = 1;
                     continue;
                 }
+                
                 if (exitCodeStr == NULL) { // Vérifie si la commande exit est utilisée sans argument
-                    exitShell(0);
+                    exitShell(lastExitCode);
                 }
-                int exitCode = atoi(exitCodeStr); // Conversion du code de sortie en int
-                exitShell(exitCode); // Fait quitter le programme avec le code de sortie donné
+
+                int exitCode = 0;
+                char *endptr;
+                exitCode = (int) strtol(exitCodeStr, &endptr, 10); // on vérifie bien que le code fourni soit un entier
+
+                if (*endptr != '\0' || exitCode < 0 || exitCode > 255) {
+                    fprintf(stderr, "exit: invalid exit code\n");
+                    lastExitCode = 1;
+                } else {
+                    exitShell(exitCode);
+                }
             }
 
+            else if (strcmp(cmd, "?") == 0) { // Commande "?"
+                printf("%d\n", lastExitCode);
+                lastExitCode = 0;
+            }
+
+            // --- COMMANDES EXTERNES ---
             else {
-                // Exécution de commandes externes
-                pid_t pid = fork();
-
-                if (pid < 0) {
-                    // Erreur lors de la création du processus
-                    fprintf(stderr, "Erreur lors de la création du processus\n");
-                } 
-                else if (pid == 0) {
-                    char *args[50]; // tableau des arguments de la commande
-                    args[0] = cmd;
-                    int i = 1;
-                    char *arg;
-                    while ((arg = strtok(NULL, " ")) != NULL) {
-                        args[i] = arg;
-                        i++;
-                    }
-                    args[i] = NULL; // Le dernier élément du tableau est NULL
-                    execvp(cmd, args);
-                    // Si on arrive ici, alors execvp a échoué
-                    fprintf(stderr, "Erreur lors de l'exécution de la commande '%s'\n", cmd);
-                    exit(EXIT_FAILURE);
-                } 
-                else {
-                    waitpid(pid, NULL, 0);
-                }
-            }
-            
-
-            free(prompt);
-            free(cmdLine);
+                lastExitCode = execute_external_command(cmd);
+            }          
         }
 
-        else{
-            free(prompt);
-            free(cmdLine);
-            continue;
-        }
+        free(prompt);
+        free(cmdLine);
     }
 
-    return EXIT_SUCCESS;
+    return lastExitCode;
 }
