@@ -3,18 +3,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <stdbool.h>
+#include "jobs.h"
 #include "external_commands.h"
 
-int execute_external_command(char *cmd) {
-    pid_t pid = fork();
+int execute_external_command(char *cmd, char *cmdLine) {
     int status;
+    bool bg = false;
+    pid_t pid;
 
-    if (pid < 0) { // Erreur lors de la création du processus
-        fprintf(stderr, "Erreur lors de la création du processus\n");
-        return 1;
-    } 
-    else if (pid == 0) {
-        char *args[50]; // tableau des arguments de la commande
+    char *args[50]; // tableau des arguments de la commande
         args[0] = cmd;
         int i = 1;
         char *arg;
@@ -23,18 +21,40 @@ int execute_external_command(char *cmd) {
             i++;
         }
         args[i] = NULL; // Le dernier élément du tableau est NULL
-        execvp(cmd, args);
 
-        // Si on arrive ici, alors execvp a échoué
-        fprintf(stderr, "Erreur lors de l'exécution de la commande '%s'\n", cmd);
-        exit(EXIT_FAILURE);
-    } 
-    else {
-        waitpid(pid, &status, 0);
-        if (WIFEXITED(status)) {
-            return WEXITSTATUS(status);
+        if (i > 1 && strcmp(args[i-1], "&") == 0) {
+            bg = true;
+            args[i-1] = NULL;
         }
-        return 1;
+
+        switch (pid = fork()){
+            case -1: // Erreur lors de la création du processus
+                fprintf(stderr, "Erreur lors de la création du processus\n");
+                return 1;
+            
+            case 0:
+                execvp(cmd, args);
+                // Si on arrive ici, alors execvp a échoué
+                fprintf(stderr, "Erreur lors de l'exécution de la commande '%s'\n", cmd);
+                exit(EXIT_FAILURE);
+
+            default:
+                if (bg) {
+                    // Créer et ajouter le job à la liste des jobs
+                    Job *job = init_job(getJobIndex(), pid, RUNNING, cmdLine);
+                    addJob(job);
+                }
+
+                else {
+                    waitpid(pid, &status, 0);
+                }
+                if (WIFEXITED(status)) {
+                    return WEXITSTATUS(status);
+                }
+                return 1;
+
+
+
     }
     return 1;
 }

@@ -10,6 +10,7 @@
 #include "pwd.h"
 #include "exit.h"
 #include "external_commands.h"
+#include "jobs.h"
 #define GREEN_COLOR "\001\033[32m\002"
 #define YELLOW_COLOR "\001\033[33m\002"
 #define NORMAL_COLOR "\001\033[00m\002"
@@ -51,13 +52,18 @@ char *get_prompt(int trunc, int nbJobs) {
 
 int main() {
     rl_outstream = stderr;
+    int nbJobs;
     while (1) {
-        char *prompt = get_prompt(30, 0);
+        nbJobs = getJobIndex() - 1;
+        char *prompt = get_prompt(30, nbJobs);
         char *cmdLine = readline(prompt); // provisoire car pas de gestion des jobs pour l'instant
         if (cmdLine == NULL) {
             break;
         }
         add_history(cmdLine);
+        char *cmdLineCopy = strcpy(malloc(strlen(cmdLine) + 1), cmdLine);
+        
+        update_job_status();
 
         char *cmd = strtok(cmdLine, " ");
 
@@ -112,15 +118,20 @@ int main() {
                 lastExitCode = 0;
             }
 
+            else if (strcmp(cmd, "jobs") == 0) { // Commande "jobs"
+                lastExitCode = jobs();
+            }
+
+
             // --- COMMANDES EXTERNES ---
             else {
-                lastExitCode = execute_external_command(cmd);
+                lastExitCode = execute_external_command(cmd, cmdLineCopy);
             }          
         }
 
         free(prompt);
         free(cmdLine);
     }
-
+    
     return lastExitCode;
 }
