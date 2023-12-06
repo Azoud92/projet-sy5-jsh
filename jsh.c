@@ -11,6 +11,7 @@
 #include "exit.h"
 #include "external_commands.h"
 #include "jobs.h"
+#include "kill.h"
 #define GREEN_COLOR "\001\033[32m\002"
 #define YELLOW_COLOR "\001\033[33m\002"
 #define NORMAL_COLOR "\001\033[00m\002"
@@ -122,6 +123,9 @@ int main() {
                 lastExitCode = jobs();
             }
 
+            else if (strcmp(cmd, "kill") == 0) { // Commande "kill"
+                lastExitCode = cmdKill();
+            }
 
             // --- COMMANDES EXTERNES ---
             else {

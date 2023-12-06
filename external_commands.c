@@ -40,8 +40,18 @@ int execute_external_command(char *cmd, char *cmdLine) {
 
             default:
                 if (bg) {
+
+                    char *and = strchr(cmdLine, '&');
+                    if (and != NULL) {
+                        *and = '\0';
+                        }
                     // Créer et ajouter le job à la liste des jobs
                     Job *job = init_job(getJobIndex(), pid, RUNNING, cmdLine);
+                    int pgid = setpgid(pid, pid);
+                    if (pgid == -1) {
+                        fprintf(stderr, "Erreur lors de la création du groupe de processus\n");
+                        return 1;
+                    }
                     addJob(job);
                 }
 

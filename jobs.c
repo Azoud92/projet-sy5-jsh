@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <stdbool.h>
 
 
 
@@ -21,7 +22,8 @@ typedef struct {
     char *cmd; // Ligne de commande
 } Job;
 
-Job *list_jobs[100];
+Job *list_jobs[250];
+bool isJob[250];
 int nextJobId = 1;
 
 
@@ -51,7 +53,10 @@ void print_job(Job *job) {
 
 int jobs() {
     for (int i = 0; i < nextJobId - 1; i++) {
-        print_job(list_jobs[i]);        
+        if (isJob[i]) {
+            print_job(list_jobs[i]);
+        }
+                
     }
     return 0;
 
@@ -77,7 +82,10 @@ void setJobId(int id) {
 
 void addJob(Job *job) {
     list_jobs[nextJobId - 1] = job;
+    isJob[nextJobId - 1] = true;
     nextJobId++;
+    
+    printf("[%d] %d\n", job->id, job->pgid);
 }
 
 Job * getJob(int id) {
@@ -96,15 +104,14 @@ void update_job_status() {
             continue;
         }
         int status;
-        pid_t result = waitpid(job->pgid, &status, WNOHANG);
+        pid_t result = waitpid(job->pgid, &status, WNOHANG | WUNTRACED);
         if (result == 0) {
-            // Le job est toujours en cours d'exécution
             job->status = RUNNING;
-        } else if (result == -1) {
-            // Erreur
+        } 
+        else if (result == -1) {
             perror("waitpid");
-        } else {
-            // Le job a terminé ou a été arrêté
+        } 
+        else {
             if (WIFEXITED(status)) {
                 job->status = DONE;
             } else if (WIFSIGNALED(status)) {
@@ -116,4 +123,8 @@ void update_job_status() {
             }
         }
     }
+}
+
+void jobDone(Job *job) {
+    job->status = DONE;
 }
