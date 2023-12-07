@@ -55,6 +55,8 @@ int main() {
     rl_outstream = stderr;
     int nbJobs;
     while (1) {
+        jobBecameDone();
+        update_job_status();
         nbJobs = getJobIndex() - 1;
         char *prompt = get_prompt(30, nbJobs);
         char *cmdLine = readline(prompt); // provisoire car pas de gestion des jobs pour l'instant
@@ -63,8 +65,6 @@ int main() {
         }
         add_history(cmdLine);
         char *cmdLineCopy = strcpy(malloc(strlen(cmdLine) + 1), cmdLine);
-        
-        update_job_status();
 
         char *cmd = strtok(cmdLine, " ");
 
@@ -120,6 +120,7 @@ int main() {
             }
 
             else if (strcmp(cmd, "jobs") == 0) { // Commande "jobs"
+                update_job_status();
                 lastExitCode = jobs();
             }
 

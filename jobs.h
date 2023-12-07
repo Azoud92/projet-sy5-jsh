@@ -27,5 +27,10 @@ void setJobId(int id);
 void addJob(Job *job);
 Job *getJob(int id);
 void update_job_status();
+void jobBecameDone();
+void killJob(pid_t pid);
+void stopJob(pid_t pid);
+void continueJob(pid_t pid);
+
 
 #endif
