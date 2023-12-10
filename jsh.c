@@ -12,6 +12,7 @@
 #include "external_commands.h"
 #include "jobs.h"
 #include "kill.h"
+#include "redirections.h"
 #define GREEN_COLOR "\001\033[32m\002"
 #define YELLOW_COLOR "\001\033[33m\002"
 #define NORMAL_COLOR "\001\033[00m\002"
@@ -51,6 +52,106 @@ char *get_prompt(int trunc, int nbJobs) {
     return prompt;
 }
 
+void handle_command (char *command) {
+
+    // On obtient la commande sans les redirections
+    char *cleanedCmd = extract_command(command);
+    if (cleanedCmd == NULL) {
+        lastExitCode = 1;
+        return;
+    }
+
+    // On crée une copie pour les redirections
+    char *redirectionCopy = strdup(command);
+
+    if (save_flows() != 0) { // sauvegarde des flux
+        free(cleanedCmd);
+        free(redirectionCopy);
+        lastExitCode = 1;
+        return;
+    }
+    if (handle_redirections(redirectionCopy) != 0) { // gestion des redirections
+        restore_flows();
+        free(cleanedCmd);
+        free(redirectionCopy);
+        lastExitCode = 1;
+        return;
+    }
+
+    char *cmdLineCopy = strcpy(malloc(strlen(cleanedCmd) + 1), cleanedCmd);    
+    char *cmd = strtok(cleanedCmd, " ");   
+
+    if (cmd != NULL){
+
+        // --- COMMANDES INTERNES ---
+        if (strcmp(cmd, "cd") == 0) { // Commande "cd"
+            char *path = strtok(NULL, " ");
+            char *extraArg = strtok(NULL, " ");
+
+            if (extraArg != NULL) { // Vérifie si la commande cd est utilisée avec trop d'arguments
+                fprintf(stderr, "cd: too many arguments\n");
+                lastExitCode = 1;
+            }
+            else {
+                lastExitCode = cd(path);
+            }
+        }
+
+        else if (strcmp(cmd, "pwd") == 0) { // Commande "pwd"
+            lastExitCode = pwd();
+        }
+
+        else if (strcmp(cmd, "exit") == 0) { // Commande "exit"
+            char *exitCodeStr = strtok(NULL, " ");
+            char *extraArg = strtok(NULL, " ");
+
+            if (extraArg != NULL) { // Vérifie si la commande exit est utilisée avec trop d'arguments
+                fprintf(stderr, "exit: too many arguments\n");
+                lastExitCode = 1;
+                return;
+            }
+            
+            if (exitCodeStr == NULL) { // Vérifie si la commande exit est utilisée sans argument
+                exitShell(lastExitCode);
+            }
+
+            int exitCode = 0;
+            char *endptr;
+            exitCode = (int) strtol(exitCodeStr, &endptr, 10); // on vérifie bien que le code fourni soit un entier
+
+            if (*endptr != '\0' || exitCode < 0 || exitCode > 255) {
+                fprintf(stderr, "exit: invalid exit code\n");
+                lastExitCode = 1;
+            } else {
+                exitShell(exitCode);
+            }
+        }
+
+        else if (strcmp(cmd, "?") == 0) { // Commande "?"
+            printf("%d\n", lastExitCode);
+            lastExitCode = 0;
+        }
+
+        else if (strcmp(cmd, "jobs") == 0) { // Commande "jobs"
+            update_job_status();
+            lastExitCode = jobs();
+        }
+
+        else if (strcmp(cmd, "kill") == 0) { // Commande "kill"
+            lastExitCode = cmdKill();
+        }
+
+        // --- COMMANDES EXTERNES ---
+        else {            
+            lastExitCode = execute_external_command(cmd, cmdLineCopy);
+        }
+    }
+    restore_flows();
+    free(cleanedCmd);
+    free(redirectionCopy);
+    free(cmdLineCopy);
+}
+
 int main() {
     rl_outstream = stderr;
     int nbJobs;
@@ -64,75 +165,8 @@ int main() {
             break;
         }
         add_history(cmdLine);
-        char *cmdLineCopy = strcpy(malloc(strlen(cmdLine) + 1), cmdLine);
 
-        char *cmd = strtok(cmdLine, " ");
-
-        if (cmd != NULL){
-
-            // --- COMMANDES INTERNES ---
-            if (strcmp(cmd, "cd") == 0) { // Commande "cd"
-                char *path = strtok(NULL, " ");
-                char *extraArg = strtok(NULL, " ");
-
-                if (extraArg != NULL) { // Vérifie si la commande cd est utilisée avec trop d'arguments
-                    fprintf(stderr, "cd: too many arguments\n");
-                    lastExitCode = 1;
-                }
-                else {
-                    lastExitCode = cd(path);
-                }
-            }
-
-            else if (strcmp(cmd, "pwd") == 0) { // Commande "pwd"
-                lastExitCode = pwd();
-            }
-
-            else if (strcmp(cmd, "exit") == 0) { // Commande "exit"
-                char *exitCodeStr = strtok(NULL, " ");
-                char *extraArg = strtok(NULL, " ");
-
-                if (extraArg != NULL) { // Vérifie si la commande exit est utilisée avec trop d'arguments
-                    fprintf(stderr, "exit: too many arguments\n");
-                    lastExitCode = 1;
-                    continue;
-                }
-                
-                if (exitCodeStr == NULL) { // Vérifie si la commande exit est utilisée sans argument
-                    exitShell(lastExitCode);
-                }
-
-                int exitCode = 0;
-                char *endptr;
-                exitCode = (int) strtol(exitCodeStr, &endptr, 10); // on vérifie bien que le code fourni soit un entier
-
-                if (*endptr != '\0' || exitCode < 0 || exitCode > 255) {
-                    fprintf(stderr, "exit: invalid exit code\n");
-                    lastExitCode = 1;
-                } else {
-                    exitShell(exitCode);
-                }
-            }
-
-            else if (strcmp(cmd, "?") == 0) { // Commande "?"
-                printf("%d\n", lastExitCode);
-                lastExitCode = 0;
-            }
-
-            else if (strcmp(cmd, "jobs") == 0) { // Commande "jobs"
-                update_job_status();
-                lastExitCode = jobs();
-            }
-
-            else if (strcmp(cmd, "kill") == 0) { // Commande "kill"
-                lastExitCode = cmdKill();
-            }
-
-            // --- COMMANDES EXTERNES ---
-            else {
-                lastExitCode = execute_external_command(cmd, cmdLineCopy);
-            }          
-        }
+        handle_command(cmdLine);
 
         free(prompt);
         free(cmdLine);
