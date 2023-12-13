@@ -158,9 +158,9 @@ int main() {
     while (1) {
         jobBecameDone();
         update_job_status();
-        nbJobs = getJobIndex() - 1;
+        nbJobs = getNbJobs();
         char *prompt = get_prompt(30, nbJobs);
-        char *cmdLine = readline(prompt); // provisoire car pas de gestion des jobs pour l'instant
+        char *cmdLine = readline(prompt); 
         if (cmdLine == NULL) {
             break;
         }

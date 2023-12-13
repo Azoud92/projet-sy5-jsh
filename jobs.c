@@ -4,8 +4,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <stdbool.h>
-
-
+#define MAX_JOBS 512
 
 enum JobStatus {
     RUNNING, 
@@ -22,8 +21,8 @@ typedef struct {
     char *cmd; // Ligne de commande
 } Job;
 
-Job *list_jobs[250];
-bool isJob[250];
+Job *list_jobs[MAX_JOBS];
+bool isJob[MAX_JOBS];
 int nextJobId = 1;
 
 
@@ -52,7 +51,7 @@ void print_job(Job *job) {
 }
 
 int jobs() {
-    for (int i = 0; i < nextJobId - 1; i++) {
+    for (int i = 0; i < MAX_JOBS; ++i) {
         if (isJob[i]) {
             print_job(list_jobs[i]);
             if (list_jobs[i]->status == DONE) {
@@ -65,42 +64,66 @@ int jobs() {
 
 }
 
+int getNbJobs() {
+    int nb = 0;
+    for (int i = 1; i < MAX_JOBS; ++i) {
+        if (isJob[i - 1]) {
+            ++nb;
+        }
+    }
+    return nb;
+}
 
-Job * init_job(int id, pid_t pgid, enum JobStatus status, char *cmd) {
+
+void updateJobsId() {
+    int lastFalseId = 0;
+    for (int i = MAX_JOBS - 1; i >= 0; --i){
+        if (!isJob[i]) lastFalseId = i;
+    } 
+    nextJobId = lastFalseId + 1;
+
+    
+}
+
+
+Job *init_job(pid_t pgid, enum JobStatus status, char *cmd) {
     Job *job = malloc(sizeof(Job));
-    job->id = id;
+    job->id = nextJobId;
     job->pgid = pgid;
     job->status = status;
     job->cmd = cmd;
+    updateJobsId();
     return job;
 }
 
-int getJobIndex() {
-    return nextJobId;
-}
 
-void setJobId(int id) {
-    nextJobId = id;
-}
 
 void addJob(Job *job) {
-    list_jobs[nextJobId - 1] = job;
-    isJob[nextJobId - 1] = true;
-    nextJobId++;
+    int jobId = job -> id;
+    list_jobs[jobId - 1] = job;
+    isJob[jobId- 1] = true;
+    ++nextJobId;
+    
+    updateJobsId();
     
     printf("[%d] %d\n", job->id, job->pgid);
 }
 
-Job * getJob(int id) {
-    if (id > nextJobId - 1 || id < 1) {
+Job *getJob(int id) {
+    if (id > nextJobId || id < 1) {
+        fprintf(stderr, "Invalid job id\n");
         return NULL;
+        
+    }
+    if (id < 1){
+        fprintf(stderr, "Invalid job id\n");
     }
     return list_jobs[id - 1];
 }
 
 
 void update_job_status() {
-    for (int i = 1; i < getJobIndex(); i++) {
+    for (int i = 1; i < MAX_JOBS; ++i) {
         if (!isJob[i - 1]) {
             continue;
         }
@@ -130,10 +153,11 @@ void update_job_status() {
             }
         }
     }
+    updateJobsId();
 }
 
 void jobBecameDone() {
-    for (int i = 1; i < getJobIndex(); i++) {
+    for (int i = 1; i < MAX_JOBS; ++i) {
         if (!isJob[i - 1]) {
             continue;
         }
@@ -146,7 +170,7 @@ void jobBecameDone() {
 }
 
 void killJob(pid_t pid){
-    for (int i = 1; i < getJobIndex(); i++) {
+    for (int i = 1; i < MAX_JOBS; ++i) {
         if (!isJob[i - 1]) {
             continue;
         }
@@ -160,7 +184,7 @@ void killJob(pid_t pid){
 }
 
 void stopJob(pid_t pid){
-    for (int i = 1; i < getJobIndex(); i++) {
+    for (int i = 1; i < MAX_JOBS; ++i) {
         if (!isJob[i - 1]) {
             continue;
         }
@@ -173,7 +197,7 @@ void stopJob(pid_t pid){
 }
 
 void continueJob(pid_t pid){
-    for (int i = 1; i < getJobIndex(); i++) {
+    for (int i = 1; i < MAX_JOBS; ++i) {
         if (!isJob[i - 1]) {
             continue;
         }

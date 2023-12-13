@@ -3,6 +3,10 @@
 
 #include <sys/types.h>
 
+#define MAX_JOBS 512
+
+
+
 enum JobStatus {
     RUNNING, 
     STOPPED, 
@@ -18,12 +22,10 @@ typedef struct {
     char *cmd;
 } Job;
 
-Job *init_job(int id, pid_t pgid, enum JobStatus status, char *cmd);
+Job *init_job(pid_t pgid, enum JobStatus status, char *cmd);
 char* statusToString(enum JobStatus status);
 void print_job(Job *job);
 int jobs();
-int getJobIndex();
-void setJobId(int id);
 void addJob(Job *job);
 Job *getJob(int id);
 void update_job_status();
@@ -31,6 +33,6 @@ void jobBecameDone();
 void killJob(pid_t pid);
 void stopJob(pid_t pid);
 void continueJob(pid_t pid);
-
+int getNbJobs();
 
 #endif
