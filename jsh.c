@@ -78,15 +78,17 @@ void handle_command (char *command) {
         return;
     }
 
-    char *cmdLineCopy = strcpy(malloc(strlen(cleanedCmd) + 1), cleanedCmd);    
-    char *cmd = strtok(cleanedCmd, " ");   
+    char *saveptr;
+    char *cmdLineCopy = strcpy(malloc(strlen(cleanedCmd) + 1), cleanedCmd);
+    char *strtokCopy = strcpy(malloc(strlen(cleanedCmd) + 1), cleanedCmd);
+    char *cmd = strtok_r(strtokCopy, " ", &saveptr);   
 
     if (cmd != NULL){
 
         // --- COMMANDES INTERNES ---
         if (strcmp(cmd, "cd") == 0) { // Commande "cd"
-            char *path = strtok(NULL, " ");
-            char *extraArg = strtok(NULL, " ");
+            char *path = strtok_r(NULL, " ", &saveptr);
+            char *extraArg = strtok_r(NULL, " ", &saveptr);
 
             if (extraArg != NULL) { // Vérifie si la commande cd est utilisée avec trop d'arguments
                 fprintf(stderr, "cd: too many arguments\n");
@@ -102,8 +104,8 @@ void handle_command (char *command) {
         }
 
         else if (strcmp(cmd, "exit") == 0) { // Commande "exit"
-            char *exitCodeStr = strtok(NULL, " ");
-            char *extraArg = strtok(NULL, " ");
+            char *exitCodeStr = strtok_r(NULL, " ", &saveptr);
+            char *extraArg = strtok_r(NULL, " ", &saveptr);
 
             if (extraArg != NULL) { // Vérifie si la commande exit est utilisée avec trop d'arguments
                 fprintf(stderr, "exit: too many arguments\n");
@@ -138,7 +140,7 @@ void handle_command (char *command) {
         }
 
         else if (strcmp(cmd, "kill") == 0) { // Commande "kill"
-            lastExitCode = cmdKill();
+            lastExitCode = cmdKill(cmdLineCopy);
         }
 
         // --- COMMANDES EXTERNES ---
@@ -150,6 +152,7 @@ void handle_command (char *command) {
     free(cleanedCmd);
     free(redirectionCopy);
     free(cmdLineCopy);
+    free(strtokCopy);
 }
 
 int main() {
@@ -162,6 +165,8 @@ int main() {
         char *prompt = get_prompt(30, nbJobs);
         char *cmdLine = readline(prompt); 
         if (cmdLine == NULL) {
+            free(prompt);
+            free(cmdLine);
             break;
         }
         add_history(cmdLine);

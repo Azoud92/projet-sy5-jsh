@@ -107,7 +107,19 @@ char *extract_command(const char *cmd) {
     char *saveptr;
     char *tmp = strdup(cmd);
     char *token = strtok_r(tmp, " ", &saveptr);
-    char *command = malloc(strlen(cmd) + 1);
+    int command_len = 0;
+
+    // Calculate the length of the final command
+    while (token != NULL) {
+        if (is_redirection(token) == 1) {
+            break;
+        }
+        command_len += strlen(token) + 1; // +1 for the space
+        token = strtok_r(NULL, " ", &saveptr);
+    }
+
+    // Allocate memory for the command
+    char *command = malloc(command_len + 1); // +1 for the null terminator
 
     if (!command) {
         free(tmp);
@@ -116,6 +128,12 @@ char *extract_command(const char *cmd) {
     }
     command[0] = '\0';
 
+    // Reset strtok_r
+    free(tmp);
+    tmp = strdup(cmd);
+    token = strtok_r(tmp, " ", &saveptr);
+
+    // Build the command
     while (token != NULL) {
         if (is_redirection(token) == 1) {
             break;

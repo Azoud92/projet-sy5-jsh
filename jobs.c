@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <stdbool.h>
@@ -91,7 +92,7 @@ Job *init_job(pid_t pgid, enum JobStatus status, char *cmd) {
     job->id = nextJobId;
     job->pgid = pgid;
     job->status = status;
-    job->cmd = cmd;
+    job->cmd = strdup(cmd);
     updateJobsId();
     return job;
 }

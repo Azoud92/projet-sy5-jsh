@@ -7,13 +7,15 @@
 #include <signal.h>
 #include "jobs.h"
 
-int cmdKill() {
+int cmdKill(char *cmd) {
     int sig = SIGTERM; // Le signal par défaut est SIGTERM
     pid_t pid;
     int jobNum;
     bool isNbJob = false;
+    char *saveptr;
 
-    char *arg = strtok(NULL, " ");
+    char *arg = strtok_r(cmd, " ", &saveptr);
+    arg = strtok_r(NULL, " ", &saveptr);
     if (arg == NULL) {
         fprintf(stderr, "kill: missing operand\n");
         return 1;
@@ -27,7 +29,7 @@ int cmdKill() {
             return 1;
         }
 
-        arg = strtok(NULL, " ");
+        arg = strtok_r(NULL, " ", &saveptr);
         if (arg == NULL) {
             fprintf(stderr, "kill: missing operand\n");
             return 1;
@@ -49,7 +51,7 @@ int cmdKill() {
         // Un PID a été fourni
         char *endptr;
         pid = (int) strtol(arg, &endptr, 10);
-        if (*endptr != '\0' || pid < 0 ) {
+        if (*endptr != '\0' || pid < 0 ) {            
             fprintf(stderr, "kill: invalid PID\n");
             return 1;
         }
