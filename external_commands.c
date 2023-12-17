@@ -12,6 +12,8 @@ int execute_external_command(char *cmd, char *cmdLine) {
     bool bg = false;
     pid_t pid;
 
+    char *cmdLineCopy = strdup(cmdLine);
+
     char *args[50]; // tableau des arguments de la commande
     args[0] = cmd;
     int i = 1;
@@ -31,21 +33,32 @@ int execute_external_command(char *cmd, char *cmdLine) {
     switch (pid = fork()){
         case -1: // Erreur lors de la création du processus
             fprintf(stderr, "Erreur lors de la création du processus\n");
+            free(cmdLineCopy);
             return 1;
         
         case 0:
             execvp(cmd, args);
             // Si on arrive ici, alors execvp a échoué
             fprintf(stderr, "Erreur lors de l'exécution de la commande '%s'\n", cmd);
+            free(cmdLineCopy);
             exit(EXIT_FAILURE);
 
         default:
             if (bg) {
                 // Créer et ajouter le job à la liste des jobs
-                Job *job = init_job(pid, RUNNING, cmdLine);
+                char *andPos = strrchr(cmdLineCopy, '&');
+                if (andPos && andPos > cmdLineCopy) {
+                    char *pos = andPos - 1;
+                    while (pos > cmdLineCopy && *pos == ' ') { // suppression du "&" et des espaces avant
+                        --pos;
+                    }
+                    *(pos + 1) = '\0';
+                }
+                Job *job = init_job(pid, RUNNING, cmdLineCopy);
                 int pgid = setpgid(pid, pid);
                 if (pgid == -1) {
                     fprintf(stderr, "Erreur lors de la création du groupe de processus\n");
+                    free(cmdLineCopy);
                     return 1;
                 }
                 addJob(job);
@@ -55,9 +68,10 @@ int execute_external_command(char *cmd, char *cmdLine) {
                 waitpid(pid, &status, 0);
             }
             if (WIFEXITED(status)) {
+                free(cmdLineCopy);
                 return WEXITSTATUS(status);
             }
+            free(cmdLineCopy);
             return 1;
     }
-    return 1;
 }

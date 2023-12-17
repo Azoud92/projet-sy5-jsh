@@ -2,6 +2,6 @@
 #include <stdio.h>
 
 void exitShell(int exit_code) {
-    printf("exit\n");
+    //printf("exit\n");
     exit(exit_code);
 }

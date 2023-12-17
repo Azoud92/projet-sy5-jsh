@@ -48,7 +48,7 @@ char* statusToString(enum JobStatus status) {
 
 void print_job(Job *job) {
     char* status = statusToString(job->status);
-    printf("[%d] %d  %s  %s\n", job->id, job->pgid, status, job->cmd);
+    fprintf(stderr, "[%d] %d  %s  %s\n", job->id, job->pgid, status, job->cmd);
 }
 
 int jobs() {
@@ -107,7 +107,7 @@ void addJob(Job *job) {
     
     updateJobsId();
     
-    printf("[%d] %d\n", job->id, job->pgid);
+    print_job(job);
 }
 
 Job *getJob(int id) {
@@ -144,13 +144,17 @@ void update_job_status() {
         else {
             if (WIFEXITED(status)) {
                 job->status = DONE;
+                print_job(job);
             } else if (WIFSIGNALED(status)) {
                 printf ("killed\n");
                 job->status = KILLED;
+                print_job(job);
             } else if (WIFSTOPPED(status)) {
                 job->status = STOPPED;
+                print_job(job);
             } else if (WIFCONTINUED(status)) {
                 job->status = RUNNING;
+                print_job(job);
             }
         }
     }
