@@ -111,13 +111,13 @@ void addJob(Job *job) {
 }
 
 Job *getJob(int id) {
-    if (id > nextJobId || id < 1) {
-        fprintf(stderr, "Invalid job id\n");
+    if (id > MAX_JOBS || id < 1) {
+        fprintf(stderr, "Invalid job id: %d\n", id);
         return NULL;
         
     }
     if (id < 1){
-        fprintf(stderr, "Invalid job id\n");
+        fprintf(stderr, "Invalid job id: %d\n", id);
     }
     return list_jobs[id - 1];
 }
@@ -144,7 +144,9 @@ void update_job_status() {
         else {
             if (WIFEXITED(status)) {
                 job->status = DONE;
+                isJob[i - 1] = false;
                 print_job(job);
+                
             } else if (WIFSIGNALED(status)) {
                 printf ("killed\n");
                 job->status = KILLED;
@@ -161,13 +163,13 @@ void update_job_status() {
     updateJobsId();
 }
 
-void jobBecameDone() {
+void jobDoneOrKilled() {
     for (int i = 1; i < MAX_JOBS; ++i) {
         if (!isJob[i - 1]) {
             continue;
         }
         Job *job = getJob(i);
-        if (job->status == DONE) {
+        if (job->status == DONE || job->status == KILLED) {
             print_job(job);
             isJob[i - 1] = false;
         }
@@ -182,8 +184,6 @@ void killJob(pid_t pid){
         Job *job = getJob(i);
         if (job->pgid == pid) {
             job->status = KILLED;
-            isJob[i - 1] = false;
-            print_job(job);
         }
     }
 }

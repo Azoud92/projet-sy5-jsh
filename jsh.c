@@ -124,7 +124,13 @@ void handle_command (char *command) {
             if (*endptr != '\0' || exitCode < 0 || exitCode > 255) {
                 fprintf(stderr, "exit: invalid exit code\n");
                 lastExitCode = 1;
-            } else {
+            }
+            else if (getNbJobs() > 0){
+                fprintf(stderr, "exit: Des jobs sont en cours d'exécution ou suspendus.\n");
+                lastExitCode = 1;
+
+            } 
+            else {
                 exitShell(exitCode);
             }
         }
@@ -159,11 +165,11 @@ int main() {
     rl_outstream = stderr;
     int nbJobs;
     while (1) {
-        jobBecameDone();
         update_job_status();
         nbJobs = getNbJobs();
         char *prompt = get_prompt(30, nbJobs);
-        char *cmdLine = readline(prompt); 
+        char *cmdLine = readline(prompt);
+        jobDoneOrKilled();
         if (cmdLine == NULL) {
             free(prompt);
             free(cmdLine);
