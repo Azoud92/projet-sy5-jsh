@@ -1,10 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <stdbool.h>
+#include <signal.h>
 #define MAX_JOBS 512
 
 enum JobStatus {
@@ -27,7 +26,6 @@ bool isJob[MAX_JOBS];
 int nextJobId = 1;
 Job *fgJob = NULL;
 
-
 void free_job(Job *job) {
     free(job->cmd);
     free(job);
@@ -48,9 +46,7 @@ char* statusToString(enum JobStatus status) {
         default:
             return "Unknown";   
     }
-
 }
-
 
 void print_job(Job *job, bool isStderr) {
     char* status = statusToString(job->status);
@@ -66,11 +62,9 @@ int jobs() {
             if (list_jobs[i]->status == DONE) {
                 isJob[i] = false;
             }
-        }
-                
+        }                
     }
     return 0;
-
 }
 
 int getNbJobs() {
@@ -83,17 +77,13 @@ int getNbJobs() {
     return nb;
 }
 
-
 void updateJobsId() {
     int lastFalseId = 0;
     for (int i = MAX_JOBS - 1; i >= 0; --i){
         if (!isJob[i]) lastFalseId = i;
     } 
     nextJobId = lastFalseId + 1;
-
-    
 }
-
 
 Job *init_job(pid_t pgid, enum JobStatus status, char *cmd) {
     Job *job = malloc(sizeof(Job));
@@ -104,8 +94,6 @@ Job *init_job(pid_t pgid, enum JobStatus status, char *cmd) {
     updateJobsId();
     return job;
 }
-
-
 
 void addJob(Job *job) {
     int jobId = job -> id;
@@ -121,32 +109,32 @@ void addJob(Job *job) {
 Job *getJob(int id) {
     if (id > MAX_JOBS || id < 1) {
         fprintf(stderr, "Invalid job id: %d\n", id);
-        return NULL;
-        
+        return NULL;        
     }
-    if (id < 1){
+    if (id < 1) {
         fprintf(stderr, "Invalid job id: %d\n", id);
     }
     return list_jobs[id - 1];
 }
-
 
 void update_job_status(bool itsCommandJobs) {
     for (int i = 1; i < MAX_JOBS; ++i) {
         if (!isJob[i - 1]) {
             continue;
         }
+
         Job *job = getJob(i);
         if (job->status == DONE || job->status == KILLED) {
             // Le job est déjà terminé, donc nous n'avons pas besoin d'appeler waitpid
             continue;
         }
+
         int status;
         pid_t result = waitpid(job->pgid, &status, WNOHANG | WUNTRACED | WCONTINUED);
         if (result == 0) {
             continue;
-        } else
-        if (result == -1) {
+        }
+        else if (result == -1) {
             perror("waitpid");
         } 
         else {
@@ -157,17 +145,20 @@ void update_job_status(bool itsCommandJobs) {
                 free_job(job);
 
                 
-            } else if (WIFSIGNALED(status)) {
+            }
+            else if (WIFSIGNALED(status)) {
                 job->status = KILLED;
                 isJob[i - 1] = false;
                 print_job(job, true);
                 free_job(job);
 
-            } else if (WIFSTOPPED(status)) {
+            }
+            else if (WIFSTOPPED(status)) {
                 job->status = STOPPED;
                 print_job(job, true);
 
-            } else if (WIFCONTINUED(status)) {
+            }
+            else if (WIFCONTINUED(status)) {
                 job->status = RUNNING;
                 print_job(job, true);
             }
@@ -181,10 +172,12 @@ void jobsDone() {
         if (!isJob[i - 1]) {
             continue;
         }
+
         Job *job = getJob(i);
         if (job->status == DONE) {
             print_job(job, true);
             isJob[i - 1] = false;
+            free_job(job);
         }
     }
 }
@@ -194,10 +187,12 @@ void JobsKilled() {
         if (!isJob[i - 1]) {
             continue;
         }
+
         Job *job = getJob(i);
         if (job->status == KILLED) {
             print_job(job, true);
             isJob[i - 1] = false;
+            free_job(job);
         }
     }
 } 
@@ -207,6 +202,7 @@ void killJob(pid_t pid){
         if (!isJob[i - 1]) {
             continue;
         }
+
         Job *job = getJob(i);
         if (job->pgid == pid) {
             job->status = KILLED;
@@ -219,6 +215,7 @@ void stopJob(pid_t pid){
         if (!isJob[i - 1]) {
             continue;
         }
+
         Job *job = getJob(i);
         if (job->pgid == pid) {
             job->status = STOPPED;
@@ -232,6 +229,7 @@ void continueJob(pid_t pid){
         if (!isJob[i - 1]) {
             continue;
         }
+
         Job *job = getJob(i);
         if (job->pgid == pid) {
             job->status = RUNNING;
@@ -239,5 +237,3 @@ void continueJob(pid_t pid){
         }
     }
 }
-
-

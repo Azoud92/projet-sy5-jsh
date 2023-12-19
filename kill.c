@@ -1,9 +1,6 @@
 #include <stdio.h>
-#include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/wait.h>
-#include <stdbool.h>
 #include <signal.h>
 #include "jobs.h"
 
@@ -37,16 +34,15 @@ int cmdKill(char *cmd) {
     }
 
     if (arg[0] == '%') {
-            // Un numéro de job a été fourni
-            isNbJob = true;
-            char *endptr;
-            jobNum = (int) strtol(arg + 1, &endptr, 10);
-            if (*endptr != '\0' || jobNum < 0 ) {
-                fprintf(stderr, "kill: invalid job number\n");
-                return 1;
-            }
-
-        } 
+        // Un numéro de job a été fourni
+        isNbJob = true;
+        char *endptr;
+        jobNum = (int) strtol(arg + 1, &endptr, 10);
+        if (*endptr != '\0' || jobNum < 0 ) {
+            fprintf(stderr, "kill: invalid job number\n");
+            return 1;
+        }
+    } 
     else {
         // Un PID a été fourni
         char *endptr;

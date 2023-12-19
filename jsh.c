@@ -1,12 +1,7 @@
 #include <stdlib.h>
-#include <stdio.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-#include <string.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <signal.h>
 #include "cd.h"
 #include "pwd.h"
 #include "exit.h"
@@ -54,15 +49,12 @@ char *get_prompt(int trunc, int nbJobs) {
 }
 
 void handle_command (char *command) {
-
     // On obtient la commande sans les redirections
     char *cleanedCmd = extract_command(command);
     if (cleanedCmd == NULL) {
         lastExitCode = 1;
         return;
     }
-
-    
 
     // On crée une copie pour les redirections
     char *redirectionCopy = strdup(command);
@@ -73,6 +65,7 @@ void handle_command (char *command) {
         lastExitCode = 1;
         return;
     }
+
     if (handle_redirections(redirectionCopy) != 0) { // gestion des redirections
         restore_flows();
         free(cleanedCmd);
@@ -90,8 +83,6 @@ void handle_command (char *command) {
         if (strcmp(cmd, "jobs") != 0) {
             jobsDone();
         }
-
-        
 
         // --- COMMANDES INTERNES ---
         if (strcmp(cmd, "cd") == 0) { // Commande "cd"
@@ -136,7 +127,6 @@ void handle_command (char *command) {
             else if (getNbJobs() > 0){
                 fprintf(stderr, "exit: Des jobs sont en cours d'exécution ou suspendus.\n");
                 lastExitCode = 1;
-
             } 
             else {
                 exitShell(exitCode);
@@ -160,12 +150,8 @@ void handle_command (char *command) {
         // --- COMMANDES EXTERNES ---
         else {            
             lastExitCode = execute_external_command(cmd, cmdLineCopy);
-        }
-
-        
-    }
-
-    
+        }        
+    }   
 
     restore_flows();
     free(cleanedCmd);
@@ -174,11 +160,7 @@ void handle_command (char *command) {
     free(strtokCopy);
 }
 
-
-
-
 int main() {
-
     rl_outstream = stderr;
     int nbJobs;
     while (1) {

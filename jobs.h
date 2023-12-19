@@ -1,12 +1,9 @@
 #ifndef JOBS_H
 #define JOBS_H
 
-#include <sys/types.h>
 #include <stdbool.h>
 
 #define MAX_JOBS 512
-
-
 
 enum JobStatus {
     RUNNING, 
@@ -23,10 +20,9 @@ typedef struct {
     char *cmd;
 } Job;
 
-
 Job *init_job(pid_t pgid, enum JobStatus status, char *cmd);
 void free_job(Job *job);
-char* statusToString(enum JobStatus status);
+char *statusToString(enum JobStatus status);
 void print_job(Job *job, bool isStderr);
 int jobs();
 void addJob(Job *job);
