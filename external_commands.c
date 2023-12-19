@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <stdbool.h>
+#include <signal.h>
 #include "jobs.h"
 #include "external_commands.h"
 
@@ -62,16 +63,29 @@ int execute_external_command(char *cmd, char *cmdLine) {
                     return 1;
                 }
                 addJob(job);
+                return 0;
             }
 
             else {
-                waitpid(pid, &status, 0);
-            }
-            if (WIFEXITED(status)) {
+                setpgid(pid, pid);
+                tcsetpgrp(STDIN_FILENO, pid);
+                do {
+                    waitpid(pid, &status, WUNTRACED | WCONTINUED);
+                } while (!WIFEXITED(status) && !WIFSTOPPED(status));
+
+                if (WIFSTOPPED(status)) {
+                    Job *job = init_job(pid, STOPPED, cmdLineCopy);
+                    addJob(job);
+                    setFgJob(job);
+                }
+                if (WIFEXITED(status)) {
+                    free(cmdLineCopy);
+                    return WEXITSTATUS(status);
+                }
+
                 free(cmdLineCopy);
-                return WEXITSTATUS(status);
+                return 1;
             }
-            free(cmdLineCopy);
-            return 1;
     }
 }
+

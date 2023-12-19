@@ -25,6 +25,7 @@ typedef struct {
 Job *list_jobs[MAX_JOBS];
 bool isJob[MAX_JOBS];
 int nextJobId = 1;
+Job *fgJob = NULL;
 
 
 char* statusToString(enum JobStatus status) {
@@ -148,12 +149,10 @@ void update_job_status() {
                 print_job(job);
                 
             } else if (WIFSIGNALED(status)) {
-                printf ("killed\n");
                 job->status = KILLED;
                 print_job(job);
             } else if (WIFSTOPPED(status)) {
                 job->status = STOPPED;
-                print_job(job);
             } else if (WIFCONTINUED(status)) {
                 job->status = RUNNING;
                 print_job(job);
@@ -209,6 +208,18 @@ void continueJob(pid_t pid){
         Job *job = getJob(i);
         if (job->pgid == pid) {
             job->status = RUNNING;
+            print_job(job);
         }
     }
+}
+
+Job *getFgJob() {
+    if (fgJob == NULL) {
+        fprintf(stderr, "Aucun job en avant-plan\n");
+    }
+    return fgJob;
+}
+
+void setFgJob(Job *job) {
+    fgJob = job;
 }

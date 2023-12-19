@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 #include "cd.h"
 #include "pwd.h"
 #include "exit.h"
@@ -161,7 +162,33 @@ void handle_command (char *command) {
     free(strtokCopy);
 }
 
+void sigtstp_handler(int sig) {
+    // Envoi SIGTSTP au groupe de processus en avant-plan
+    kill(-tcgetpgrp(STDIN_FILENO), SIGTSTP);
+}
+
+void sigcont_handler(int sig) {
+    printf("CONT \n");
+    Job *job = getFgJob();
+    if (job == NULL) {
+        fprintf(stderr, "Aucun job en avant-plan\n");
+        return;
+    }
+
+    // Envoi SIGCONT au groupe de processus du job pour le reprendre
+    kill(-job->pgid, SIGCONT);
+
+    // Met à jour l'état du job
+    job->status = RUNNING;
+    print_job(job);
+
+}
+
+
 int main() {
+    signal(SIGTSTP, sigtstp_handler);
+    signal(SIGCONT, sigcont_handler);
+
     rl_outstream = stderr;
     int nbJobs;
     while (1) {
@@ -173,6 +200,7 @@ int main() {
         if (cmdLine == NULL) {
             free(prompt);
             free(cmdLine);
+            exitShell(lastExitCode);
             break;
         }
         add_history(cmdLine);

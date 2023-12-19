@@ -34,5 +34,7 @@ void killJob(pid_t pid);
 void stopJob(pid_t pid);
 void continueJob(pid_t pid);
 int getNbJobs();
+Job *getFgJob();
+void setFgJob();
 
 #endif
