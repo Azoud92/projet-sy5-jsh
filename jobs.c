@@ -28,6 +28,11 @@ int nextJobId = 1;
 Job *fgJob = NULL;
 
 
+void free_job(Job *job) {
+    free(job->cmd);
+    free(job);
+}
+
 char* statusToString(enum JobStatus status) {
     switch (status) {
         case RUNNING:
@@ -47,15 +52,17 @@ char* statusToString(enum JobStatus status) {
 }
 
 
-void print_job(Job *job) {
+void print_job(Job *job, bool isStderr) {
     char* status = statusToString(job->status);
-    fprintf(stderr, "[%d] %d  %s  %s\n", job->id, job->pgid, status, job->cmd);
+
+    if (isStderr) fprintf(stderr, "[%d] %d  %s  %s\n", job->id, job->pgid, status, job->cmd);
+    else fprintf(stdout, "[%d] %d  %s  %s\n", job->id, job->pgid, status, job->cmd);
 }
 
 int jobs() {
     for (int i = 0; i < MAX_JOBS; ++i) {
         if (isJob[i]) {
-            print_job(list_jobs[i]);
+            print_job(list_jobs[i], false);
             if (list_jobs[i]->status == DONE) {
                 isJob[i] = false;
             }
@@ -108,7 +115,7 @@ void addJob(Job *job) {
     
     updateJobsId();
     
-    print_job(job);
+    print_job(job, true);
 }
 
 Job *getJob(int id) {
@@ -124,7 +131,7 @@ Job *getJob(int id) {
 }
 
 
-void update_job_status() {
+void update_job_status(bool itsCommandJobs) {
     for (int i = 1; i < MAX_JOBS; ++i) {
         if (!isJob[i - 1]) {
             continue;
@@ -135,7 +142,7 @@ void update_job_status() {
             continue;
         }
         int status;
-        pid_t result = waitpid(job->pgid, &status, WNOHANG | WUNTRACED);
+        pid_t result = waitpid(job->pgid, &status, WNOHANG | WUNTRACED | WCONTINUED);
         if (result == 0) {
             continue;
         } else
@@ -146,34 +153,54 @@ void update_job_status() {
             if (WIFEXITED(status)) {
                 job->status = DONE;
                 isJob[i - 1] = false;
-                print_job(job);
+                print_job(job, !itsCommandJobs);
+                free_job(job);
+
                 
             } else if (WIFSIGNALED(status)) {
                 job->status = KILLED;
-                print_job(job);
+                isJob[i - 1] = false;
+                print_job(job, true);
+                free_job(job);
+
             } else if (WIFSTOPPED(status)) {
                 job->status = STOPPED;
+                print_job(job, true);
+
             } else if (WIFCONTINUED(status)) {
                 job->status = RUNNING;
-                print_job(job);
+                print_job(job, true);
             }
         }
     }
     updateJobsId();
 }
 
-void jobDoneOrKilled() {
+void jobsDone() {
     for (int i = 1; i < MAX_JOBS; ++i) {
         if (!isJob[i - 1]) {
             continue;
         }
         Job *job = getJob(i);
-        if (job->status == DONE || job->status == KILLED) {
-            print_job(job);
+        if (job->status == DONE) {
+            print_job(job, true);
             isJob[i - 1] = false;
         }
     }
 }
+
+void JobsKilled() {
+    for (int i = 1; i < MAX_JOBS; ++i) {
+        if (!isJob[i - 1]) {
+            continue;
+        }
+        Job *job = getJob(i);
+        if (job->status == KILLED) {
+            print_job(job, true);
+            isJob[i - 1] = false;
+        }
+    }
+} 
 
 void killJob(pid_t pid){
     for (int i = 1; i < MAX_JOBS; ++i) {
@@ -195,7 +222,7 @@ void stopJob(pid_t pid){
         Job *job = getJob(i);
         if (job->pgid == pid) {
             job->status = STOPPED;
-            print_job(job);
+            print_job(job, true);
         }
     }
 }
@@ -208,18 +235,9 @@ void continueJob(pid_t pid){
         Job *job = getJob(i);
         if (job->pgid == pid) {
             job->status = RUNNING;
-            print_job(job);
+            print_job(job, true);
         }
     }
 }
 
-Job *getFgJob() {
-    if (fgJob == NULL) {
-        fprintf(stderr, "Aucun job en avant-plan\n");
-    }
-    return fgJob;
-}
 
-void setFgJob(Job *job) {
-    fgJob = job;
-}

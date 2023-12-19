@@ -62,6 +62,8 @@ void handle_command (char *command) {
         return;
     }
 
+    
+
     // On crée une copie pour les redirections
     char *redirectionCopy = strdup(command);
 
@@ -85,6 +87,11 @@ void handle_command (char *command) {
     char *cmd = strtok_r(strtokCopy, " ", &saveptr);   
 
     if (cmd != NULL){
+        if (strcmp(cmd, "jobs") != 0) {
+            jobsDone();
+        }
+
+        
 
         // --- COMMANDES INTERNES ---
         if (strcmp(cmd, "cd") == 0) { // Commande "cd"
@@ -142,7 +149,7 @@ void handle_command (char *command) {
         }
 
         else if (strcmp(cmd, "jobs") == 0) { // Commande "jobs"
-            update_job_status();
+            update_job_status(true);
             lastExitCode = jobs();
         }
 
@@ -154,7 +161,12 @@ void handle_command (char *command) {
         else {            
             lastExitCode = execute_external_command(cmd, cmdLineCopy);
         }
+
+        
     }
+
+    
+
     restore_flows();
     free(cleanedCmd);
     free(redirectionCopy);
@@ -162,50 +174,32 @@ void handle_command (char *command) {
     free(strtokCopy);
 }
 
-void sigtstp_handler(int sig) {
-    // Envoi SIGTSTP au groupe de processus en avant-plan
-    kill(-tcgetpgrp(STDIN_FILENO), SIGTSTP);
-}
 
-void sigcont_handler(int sig) {
-    printf("CONT \n");
-    Job *job = getFgJob();
-    if (job == NULL) {
-        fprintf(stderr, "Aucun job en avant-plan\n");
-        return;
-    }
-
-    // Envoi SIGCONT au groupe de processus du job pour le reprendre
-    kill(-job->pgid, SIGCONT);
-
-    // Met à jour l'état du job
-    job->status = RUNNING;
-    print_job(job);
-
-}
 
 
 int main() {
-    signal(SIGTSTP, sigtstp_handler);
-    signal(SIGCONT, sigcont_handler);
 
     rl_outstream = stderr;
     int nbJobs;
     while (1) {
-        update_job_status();
         nbJobs = getNbJobs();
         char *prompt = get_prompt(30, nbJobs);
         char *cmdLine = readline(prompt);
-        jobDoneOrKilled();
+        
+        JobsKilled();
+
         if (cmdLine == NULL) {
             free(prompt);
             free(cmdLine);
             exitShell(lastExitCode);
             break;
         }
+
         add_history(cmdLine);
 
         handle_command(cmdLine);
+        
+        update_job_status(false);
 
         free(prompt);
         free(cmdLine);

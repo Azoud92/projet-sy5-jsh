@@ -68,15 +68,16 @@ int execute_external_command(char *cmd, char *cmdLine) {
 
             else {
                 setpgid(pid, pid);
-                tcsetpgrp(STDIN_FILENO, pid);
                 do {
-                    waitpid(pid, &status, WUNTRACED | WCONTINUED);
-                } while (!WIFEXITED(status) && !WIFSTOPPED(status));
-
+                    waitpid(pid, &status, WUNTRACED);
+                } while (!WIFEXITED(status) && !WIFSTOPPED(status) );
                 if (WIFSTOPPED(status)) {
+                    //suppression des espaces et saut de ligne de fin de commande
+                    int len = strcspn(cmdLineCopy, " \n");
+                    cmdLineCopy[len] = '\0';
                     Job *job = init_job(pid, STOPPED, cmdLineCopy);
                     addJob(job);
-                    setFgJob(job);
+                    return WEXITSTATUS(status);
                 }
                 if (WIFEXITED(status)) {
                     free(cmdLineCopy);
