@@ -219,7 +219,6 @@ void stopJob(pid_t pid){
         Job *job = getJob(i);
         if (job->pgid == pid) {
             job->status = STOPPED;
-            print_job(job, true);
         }
     }
 }
@@ -233,7 +232,6 @@ void continueJob(pid_t pid){
         Job *job = getJob(i);
         if (job->pgid == pid) {
             job->status = RUNNING;
-            print_job(job, true);
         }
     }
 }

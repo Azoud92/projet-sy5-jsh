@@ -9,6 +9,7 @@
 #include "jobs.h"
 #include "kill.h"
 #include "redirections.h"
+#include "bg.h"
 #define GREEN_COLOR "\001\033[32m\002"
 #define YELLOW_COLOR "\001\033[33m\002"
 #define NORMAL_COLOR "\001\033[00m\002"
@@ -146,6 +147,11 @@ void handle_command (char *command) {
         else if (strcmp(cmd, "kill") == 0) { // Commande "kill"
             lastExitCode = cmdKill(cmdLineCopy);
         }
+
+        else if (strcmp(cmd, "bg") == 0) { // Commande "bg"
+            lastExitCode = bg(cmdLineCopy);
+        }
+
 
         // --- COMMANDES EXTERNES ---
         else {            
