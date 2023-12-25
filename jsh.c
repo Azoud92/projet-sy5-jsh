@@ -2,6 +2,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <unistd.h>
+#include <signal.h>
 #include "cd.h"
 #include "pwd.h"
 #include "exit.h"
@@ -10,6 +11,7 @@
 #include "kill.h"
 #include "redirections.h"
 #include "bg.h"
+#include "fg.h"
 #define GREEN_COLOR "\001\033[32m\002"
 #define YELLOW_COLOR "\001\033[33m\002"
 #define NORMAL_COLOR "\001\033[00m\002"
@@ -151,6 +153,9 @@ void handle_command (char *command) {
         else if (strcmp(cmd, "bg") == 0) { // Commande "bg"
             lastExitCode = bg(cmdLineCopy);
         }
+        else if (strcmp(cmd, "fg") == 0) { // Commande "fg"
+            lastExitCode = fg(cmdLineCopy);
+        }
 
 
         // --- COMMANDES EXTERNES ---
@@ -166,7 +171,23 @@ void handle_command (char *command) {
     free(strtokCopy);
 }
 
+
+void sigttou_handler(int sig) {
+    tcsetpgrp(STDIN_FILENO, getpgrp());
+}
+
 int main() {
+
+    struct sigaction sa;
+    sa.sa_handler = sigttou_handler;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    if (sigaction(SIGTTOU, &sa, NULL) == -1) {
+        perror("sigaction");
+        exit(1);
+    }
+
+
     rl_outstream = stderr;
     int nbJobs;
     while (1) {

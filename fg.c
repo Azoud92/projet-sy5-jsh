@@ -4,13 +4,16 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include "jobs.h"
-int bg(char *cmd){
+#include <unistd.h>
+
+
+int fg(char *cmd){
     int jobId;
     char *saveptr;
     char *arg = strtok_r(cmd, " ", &saveptr);
     arg = strtok_r(NULL, " ", &saveptr);
     if (arg == NULL) {
-        fprintf(stderr, "bg: missing operand\n");
+        fprintf(stderr, "fg: missing operand\n");
         return 1;
     }
 
@@ -19,21 +22,33 @@ int bg(char *cmd){
         char *endptr;
         jobId = (int) strtol(arg + 1, &endptr, 10);
         if (*endptr != '\0' || jobId < 0 ) {
-            fprintf(stderr, "bg: invalid job number\n");
+            fprintf(stderr, "fg: invalid job number\n");
             return 1;
         }
     } 
     else {
-        fprintf(stderr, "bg: invalid job number\n");
+        fprintf(stderr, "fg: invalid job number\n");
         return 1;
     }
 
     Job *job = getJob(jobId);
     if (job == NULL) {
-        fprintf(stderr, "bg: job not found: %d\n", jobId);
+        fprintf(stderr, "fg: job not found: %d\n", jobId);
         return 1;
     }
-    kill(-job->pgid, SIGCONT);
+    pid_t jPid = job->pgid;
+    printName(job);
+    removeJob(jPid);
+    tcsetpgrp(STDIN_FILENO, jPid);
+    kill(-jPid, SIGCONT);
+    int status;
+    while (waitpid(jPid, &status, WUNTRACED) > 0) {
+        if (WIFEXITED(status) || WIFSIGNALED(status)) {
+            break;
+        }
+    }
+    tcsetpgrp(STDIN_FILENO, getpgrp());
     return 0;
+
 
 }

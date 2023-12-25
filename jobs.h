@@ -34,5 +34,6 @@ void killJob(pid_t pid);
 void stopJob(pid_t pid);
 void continueJob(pid_t pid);
 int getNbJobs();
-
+void removeJob(pid_t pid);
+void printName(Job *job);
 #endif

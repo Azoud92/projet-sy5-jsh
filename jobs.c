@@ -149,18 +149,18 @@ void update_job_status(bool itsCommandJobs) {
             else if (WIFSIGNALED(status)) {
                 job->status = KILLED;
                 isJob[i - 1] = false;
-                print_job(job, true);
+                print_job(job, !itsCommandJobs);
                 free_job(job);
 
             }
             else if (WIFSTOPPED(status)) {
                 job->status = STOPPED;
-                print_job(job, true);
+                print_job(job, !itsCommandJobs);
 
             }
             else if (WIFCONTINUED(status)) {
                 job->status = RUNNING;
-                print_job(job, true);
+                print_job(job, !itsCommandJobs);
             }
         }
     }
@@ -219,6 +219,7 @@ void stopJob(pid_t pid){
         Job *job = getJob(i);
         if (job->pgid == pid) {
             job->status = STOPPED;
+            print_job(job, true);
         }
     }
 }
@@ -234,4 +235,23 @@ void continueJob(pid_t pid){
             job->status = RUNNING;
         }
     }
+}
+
+
+void removeJob(pid_t pid) {
+    for (int i = 1; i < MAX_JOBS; ++i) {
+        if (!isJob[i - 1]) {
+            continue;
+        }
+
+        Job *job = getJob(i);
+        if (job->pgid == pid) {
+            isJob[i - 1] = false;
+            free_job(job);
+        }
+    }
+}
+
+void printName(Job *job) {
+    fprintf(stderr, "%s\n", job->cmd);
 }
