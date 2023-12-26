@@ -2,7 +2,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <fcntl.h>
+
+#include "commands.h"
 
 #define APPEND 1
 #define OVERWRITE 2
@@ -111,7 +114,7 @@ char *extract_command(const char *cmd) {
 
     // Calculate the length of the final command
     while (token != NULL) {
-        if (is_redirection(token) == 1) {
+        if (is_redirection(token) == 1 || strcmp(token, "|") == 0) {
             break;
         }
         command_len += strlen(token) + 1; // +1 for the space
@@ -150,7 +153,7 @@ char *extract_command(const char *cmd) {
 int handle_redirections(char *cmd) {
     char *saveptr;
     char *token = strtok_r(cmd, " ", &saveptr);
-
+    
     while (token != NULL) {
         // On est sur une redirection
         if (is_redirection(token) == 1) {
@@ -203,5 +206,153 @@ int handle_redirections(char *cmd) {
         }
         token = strtok_r(NULL, " ", &saveptr);
     }
+    return 0;
+}
+
+int handle_redirections_for_pipelines(char *cmd, int first, int last) {
+    char *saveptr;
+    char *token = strtok_r(cmd, " ", &saveptr);
+    
+    while (token != NULL) {
+        // On est sur une redirection
+        if (is_redirection(token) == 1) {
+            
+            char *file = strtok_r(NULL, " ", &saveptr);
+            if (file == NULL) {
+                fprintf(stderr, "Erreur : aucun fichier spécifié pour la redirection.\n");
+                return 1;
+            }
+
+            int mode = -1;
+            int output = -1;
+
+            // On détermine le mode et le flux de la redirection
+            if (strcmp(token, "<") == 0 && first == 1) { // entrée
+                if (redirect_file_to_cmd(file) != 0) {
+                    return 1;
+                }
+            }
+            else if (strcmp(token, ">") == 0 && last == 1) {
+                mode = WITHOUT_OVERWRITE;
+                output = STDOUT_FILENO;
+            }
+            else if (strcmp(token, ">|") == 0 && last == 1) {
+                mode = OVERWRITE;
+                output = STDOUT_FILENO;
+            }
+            else if (strcmp(token, ">>") == 0 && last == 1) {
+                mode = APPEND;
+                output = STDOUT_FILENO;
+            }
+            else if (strcmp(token, "2>") == 0) {
+                mode = WITHOUT_OVERWRITE;
+                output = STDERR_FILENO;
+            }
+            else if (strcmp(token, "2>|") == 0) {
+                mode = OVERWRITE;
+                output = STDERR_FILENO;
+            }
+            else if (strcmp(token, "2>>") == 0) {
+                mode = APPEND;
+                output = STDERR_FILENO;
+            }
+
+            if (mode == -1 || output == -1) {
+                return 0;
+            }
+
+            if (redirect_cmd_to_file(file, mode, output) != 0) {
+                return 1;
+            }
+        }
+        token = strtok_r(NULL, " ", &saveptr);
+    }
+    return 0;
+}
+
+int handle_pipelines(char *cmd) {
+    char *saveptr;
+    char *token = strtok_r(cmd, " ", &saveptr);
+
+    char *currentCmd = malloc(strlen(cmd) + 1);
+    if (currentCmd == NULL) {
+        perror("malloc");
+        return 1;
+    }
+
+    currentCmd[0] = '\0';
+
+    int pipefd[2];
+    pid_t pid;
+    int lastIn = STDIN_FILENO;
+
+    int first = 1;
+    int last = 0;
+
+    while (token != NULL) {
+        save_flows();
+        if (strcmp("|", token) != 0) { // On est pas sur un pipeline donc on ajoute le token à la commande courante
+            strcat(currentCmd, token);
+            strcat(currentCmd, " ");
+        }
+
+        char *next_token = strtok_r(NULL, " ", &saveptr);
+        last = (next_token == NULL);
+        if (strcmp("|", token) == 0 || next_token == NULL) { // On est sur un pipeline ou sur la dernière commande
+            if (next_token != NULL) {
+                if (pipe(pipefd) < 0) {
+                    perror("pipe");
+                    free(currentCmd);
+                    return 1;
+                }
+            }
+
+            currentCmd[strlen(currentCmd) - 1] = '\0';
+
+            char *cmdCpy = strdup(currentCmd); 
+            if (handle_redirections_for_pipelines(cmdCpy, first, last) != 0) {
+                free(currentCmd);
+                free(cmdCpy);
+                return 1;
+            }
+
+            switch(pid = fork()) {
+                case -1:
+                    perror("fork");
+                    free(currentCmd);
+                    return 1;            
+                case 0:
+                    if (lastIn != STDIN_FILENO) {
+                        dup2(lastIn, STDIN_FILENO);
+                        close(lastIn);
+                    }
+                    if (next_token != NULL) {
+                        dup2(pipefd[1], STDOUT_FILENO);
+                    }
+                    close(pipefd[0]);
+
+                    char *cmdClean = extract_command(currentCmd);
+                    execute_command(cmdClean);
+                    free(cmdClean);               
+                    exit(0);
+                default:
+                    wait(NULL);
+                    if (lastIn != STDIN_FILENO) {
+                        close(lastIn);
+                    }
+                    if (next_token != NULL) {
+                        lastIn = pipefd[0];
+                        close(pipefd[1]);
+                    }
+                    currentCmd[0] = '\0';
+            }
+            free(cmdCpy);
+            first = 0;
+        }
+        restore_flows();
+        token = next_token;
+    }
+
+    free(currentCmd);
     return 0;
 }
