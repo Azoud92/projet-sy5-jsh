@@ -2,12 +2,12 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <unistd.h>
-#include <signal.h>
 #include "external_commands.h"
 #include "redirections.h"
 #include "commands.h"
 #include "jobs.h"
 #include "exit.h"
+#include "signals.h"
 #define GREEN_COLOR "\001\033[32m\002"
 #define YELLOW_COLOR "\001\033[33m\002"
 #define NORMAL_COLOR "\001\033[00m\002"
@@ -72,26 +72,12 @@ void handle_command (char *command) {
     free(cleanedCmd);
 }
 
-
-void sigttou_handler(int sig) {
-    tcsetpgrp(STDIN_FILENO, getpgrp());
-}
-
 int main() {
-
-    struct sigaction sa;
-    sa.sa_handler = sigttou_handler;
-    sa.sa_flags = 0;
-    sigemptyset(&sa.sa_mask);
-    if (sigaction(SIGTTOU, &sa, NULL) == -1) {
-        perror("sigaction");
-        exit(1);
-    }
-
 
     rl_outstream = stderr;
     int nbJobs;
     while (1) {
+        ignore_signals();
         nbJobs = getNbJobs();
         char *prompt = get_prompt(30, nbJobs);
         char *cmdLine = readline(prompt);
@@ -108,15 +94,17 @@ int main() {
         add_history(cmdLine);
 
         if (strstr(cmdLine, " | ") != NULL) {
+            restore_signals();
             handle_pipelines(cmdLine);
         } else {
+            restore_signals();
             handle_command(cmdLine);
         }
         
         update_job_status(false);
 
         free(prompt);
-        free(cmdLine);
+        free(cmdLine);        
     }
     
     return lastExitCode;
