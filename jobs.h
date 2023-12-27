@@ -36,4 +36,7 @@ void continueJob(pid_t pid);
 int getNbJobs();
 void removeJob(pid_t pid);
 void printName(Job *job);
+int jobs_t();
+int printPid(int pid);
+int printChildren(int pid, int indent);
 #endif

@@ -255,3 +255,121 @@ void removeJob(pid_t pid) {
 void printName(Job *job) {
     fprintf(stderr, "%s\n", job->cmd);
 }
+
+int printChildren(int pid, int indent) {
+    char path[256];
+    sprintf(path, "/proc/%d/task/%d/children", pid, pid);
+
+    FILE *file = fopen(path, "r");
+    if (file == NULL) {
+        perror("fopen");
+        return 1;
+    }
+
+    char *line = NULL;
+    size_t len = 0;
+    while (getline(&line, &len, file) != -1) {
+        char *token = strtok(line, " ");
+        while (token != NULL) {
+            pid_t child_pid = atoi(token);
+
+            // Obtenez les informations sur le processus fils
+            char child_path[256], child_comm[256], child_state;
+            char *child_status;
+            sprintf(child_path, "/proc/%d/stat", child_pid);
+            FILE *child_fp = fopen(child_path, "r");
+            if (child_fp != NULL) {
+                fscanf(child_fp, "%*d %s %c", child_comm, &child_state);
+                child_comm[strlen(child_comm) - 1] = '\0'; // Enlevez les parenthèses autour de la commande
+
+                switch (child_state) {
+                    case 'R':
+                        child_status = "Running";
+                        break;
+                    case 'T':
+                    case 't':
+                        child_status = "Stopped";
+                        break;
+                    case 'Z':
+                        child_status = "Killed";
+                        break;
+                    case 'X':
+                    case 'x':
+                        child_status = "Done";
+                        break;
+                    default:
+                        child_status = "Unknown";
+                        break;
+                }
+
+                // Affichez les informations sur le processus fils avec la bonne indentation
+                for (int i = 0; i < indent; ++i) {
+                    fprintf(stderr, "    ");
+                }
+                fprintf(stderr, "%d %s %s\n", child_pid, child_status, child_comm);
+
+                fclose(child_fp);
+            }
+
+            // Affichez les processus fils du processus fils
+            printChildren(child_pid, indent + 1);
+
+            token = strtok(NULL, " ");
+        }
+    }
+
+    free(line);
+    fclose(file);
+    return 0;
+}
+
+int printPid(int pid, int id){
+    char path[256], comm[256], state;
+    char *status;
+    sprintf(path, "/proc/%d/stat", pid);
+    FILE *fp = fopen(path, "r");
+    if (fp == NULL) {
+        return 1;
+    }
+
+    fscanf(fp, "%*d %s %c", comm, &state);
+    
+    switch (state) {
+        case 'R':
+            status = "Running";
+        case 'T':
+        case 't':
+            status = "Stopped";
+        case 'Z':
+            status = "Killed";
+        case 'X':
+        case 'x':
+            status = "Done";
+        default:
+            status = "Running";
+    }
+    comm[strlen(comm) - 1] = '\0';
+
+
+    fprintf(stderr, "[%d] %d  %s  %s\n", id, pid, status, comm+1);
+    fclose(fp);
+    printChildren(pid, 1);
+    return 0;
+
+}
+
+int jobs_t() {
+    for (int i = 1; i < MAX_JOBS; ++i) {
+        if (!isJob[i - 1]) {
+            continue;
+        }
+        Job *job = getJob(i);
+        if (job == NULL) {
+            continue;
+        }
+        if (printPid(job->pgid, job->id) != 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
