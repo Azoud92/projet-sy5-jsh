@@ -4,8 +4,9 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-
+#include "jobs.h"
 #include "commands.h"
+#include <stdbool.h>
 
 #define APPEND 1
 #define OVERWRITE 2
@@ -270,7 +271,9 @@ int handle_redirections_for_pipelines(char *cmd, int first, int last) {
     return 0;
 }
 
-int handle_pipelines(char *cmd) {
+
+
+int handle_pipelines(char *cmd, bool isBg) {
     char *saveptr;
     char *token = strtok_r(cmd, " ", &saveptr);
 
@@ -288,6 +291,8 @@ int handle_pipelines(char *cmd) {
 
     int first = 1;
     int last = 0;
+
+    
 
     while (token != NULL) {
         save_flows();
@@ -336,7 +341,8 @@ int handle_pipelines(char *cmd) {
                     free(cmdClean);               
                     exit(0);
                 default:
-                    wait(NULL);
+                    if (!isBg) wait(NULL);
+                    
                     if (lastIn != STDIN_FILENO) {
                         close(lastIn);
                     }
@@ -353,6 +359,9 @@ int handle_pipelines(char *cmd) {
         token = next_token;
     }
 
+    
+
     free(currentCmd);
     return 0;
 }
+

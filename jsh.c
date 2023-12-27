@@ -8,6 +8,7 @@
 #include "commands.h"
 #include "jobs.h"
 #include "exit.h"
+#include <sys/wait.h>
 #define GREEN_COLOR "\001\033[32m\002"
 #define YELLOW_COLOR "\001\033[33m\002"
 #define NORMAL_COLOR "\001\033[00m\002"
@@ -108,7 +109,32 @@ int main() {
         add_history(cmdLine);
 
         if (strstr(cmdLine, " | ") != NULL) {
-            handle_pipelines(cmdLine);
+            char *and = strrchr(cmdLine, '&');
+            if (and != NULL && *(and + 1) == '\0') {
+                *and = '\0';
+
+                pid_t pid = fork();
+                switch (pid) {
+                    case -1:
+                        perror("fork");
+                        lastExitCode = 1;
+                        break;
+
+                    case 0:
+                        Job *job = init_job(getpid(), RUNNING, cmdLine);
+                        addJob(job);
+                        handle_pipelines(cmdLine, true);
+                        break;
+
+                    default:
+                        waitpid(-1, NULL, 0);
+                        break;
+                }
+            }
+            else {
+                handle_pipelines(cmdLine, false);
+            }
+
         } else {
             handle_command(cmdLine);
         }
