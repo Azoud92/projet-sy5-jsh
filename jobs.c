@@ -130,15 +130,11 @@ void update_job_status(bool itsCommandJobs) {
         }
 
         int status;
-        pid_t result = waitpid(job->pgid, &status, WNOHANG | WUNTRACED | WCONTINUED);
+        pid_t result = waitpid(-job->pgid, &status, WNOHANG | WUNTRACED | WCONTINUED);
         if (result == 0) {
             continue;
         }
-        else if (result == -1) {
-            printf("Error: waitpid\n");
-            perror("waitpid");
-        } 
-        else {
+        if (result != -1) {
             if (WIFEXITED(status)) {
                 job->status = DONE;
                 isJob[i - 1] = false;
@@ -263,7 +259,6 @@ void printChildren(int pid, int indent) {
 
     FILE *file = fopen(path, "r");
     if (file == NULL) {
-        perror("fopen");
         return;
     }
 
@@ -274,17 +269,18 @@ void printChildren(int pid, int indent) {
         while (token != NULL) {
             pid_t child_pid = atoi(token);
 
-            // Obtenez les informations sur le processus fils
+            // Obtenir les informations sur le processus fils
             char child_path[256], child_state;
             char *child_status;
-            char *child_comm;
+            char child_comm[256];
             sprintf(child_path, "/proc/%d/stat", child_pid);
             FILE *child_fp = fopen(child_path, "r");
             if (child_fp != NULL) {
                 fscanf(child_fp, "%*d %s %c", child_comm, &child_state);
-                child_comm = child_comm + 1;
                 child_comm[strlen(child_comm) - 1] = '\0';
-
+                if (strcmp(child_comm + 1, "jsh") == 0) {
+                    continue;
+                }
 
 
                 switch (child_state) {
@@ -310,16 +306,15 @@ void printChildren(int pid, int indent) {
                         break;
                 }
 
-                // Affichez les informations sur le processus fils avec la bonne indentation
+                // Affiche les informations sur le processus fils avec la bonne indentation
                 for (int i = 0; i < indent; ++i) {
                     fprintf(stderr, "    ");
                 }
-                fprintf(stderr, "%d  %s  %s\n", child_pid, child_status, child_comm);
-
+                fprintf(stderr, "%d  %s  %s\n", child_pid, child_status, child_comm + 1);
                 fclose(child_fp);
             }
 
-            // Affichez les processus fils du processus fils
+            // Affiche les processus fils du processus fils
             printChildren(child_pid, indent + 1);
 
             token = strtok(NULL, " ");

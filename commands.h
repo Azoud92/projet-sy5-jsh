@@ -2,6 +2,6 @@
 #define COMMANDS_H
 
 extern int lastExitCode;
-void execute_command(char *cmd);
+void execute_command(char *cmd, bool isPipeBg);
 
 #endif

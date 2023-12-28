@@ -67,7 +67,7 @@ void handle_command (char *command) {
         return;
     }
 
-    execute_command(cleanedCmd);    
+    execute_command(cleanedCmd, false);    
 
     restore_flows();
     free(cleanedCmd);
@@ -78,7 +78,7 @@ int main() {
     rl_outstream = stderr;
     int nbJobs;
     while (1) {
-        ignore_signals();
+        //ignore_signals();
         nbJobs = getNbJobs();
         char *prompt = get_prompt(30, nbJobs);
         char *cmdLine = readline(prompt);
@@ -109,6 +109,7 @@ int main() {
 
                     case 0:
                         Job *job = init_job(getpid(), RUNNING, cmdLine);
+                        setpgid(getpid(), getpid());
                         addJob(job);
                         handle_pipelines(cmdLine, true);
                         break;

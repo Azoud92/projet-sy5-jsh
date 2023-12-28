@@ -50,7 +50,6 @@ int redirect_file_to_cmd(const char* file) {
     int fd = open(file, O_RDONLY);
     if (fd == -1) {
         perror("open");
-        close(fd);
         return 1;
     }
     if (dup2(fd, STDIN_FILENO) == -1) {
@@ -80,7 +79,6 @@ int redirect_cmd_to_file(const char* file, int mode, int output) {
     }
     if (fd == -1) {
         perror("open");
-        close(fd);
         return 1;
     }
     if (output != STDOUT_FILENO && output != STDERR_FILENO) {
@@ -307,6 +305,8 @@ int handle_pipelines(char *cmd, bool isBg) {
             if (next_token != NULL) {
                 if (pipe(pipefd) < 0) {
                     perror("pipe");
+                    close(pipefd[0]);
+                    close(pipefd[1]);
                     free(currentCmd);
                     return 1;
                 }
@@ -324,20 +324,25 @@ int handle_pipelines(char *cmd, bool isBg) {
             switch(pid = fork()) {
                 case -1:
                     perror("fork");
+                    close(pipefd[0]);
+                    close(pipefd[1]);
                     free(currentCmd);
                     return 1;            
                 case 0:
+                setpgid(getpid(), getpid());
                     if (lastIn != STDIN_FILENO) {
                         dup2(lastIn, STDIN_FILENO);
                         close(lastIn);
                     }
                     if (next_token != NULL) {
                         dup2(pipefd[1], STDOUT_FILENO);
+                        close(pipefd[1]);
                     }
                     close(pipefd[0]);
 
                     char *cmdClean = extract_command(currentCmd);
-                    execute_command(cmdClean);
+                    execute_command(cmdClean, isBg);
+                    close(pipefd[1]);
                     free(cmdClean);               
                     exit(0);
                 default:
@@ -349,6 +354,9 @@ int handle_pipelines(char *cmd, bool isBg) {
                     if (next_token != NULL) {
                         lastIn = pipefd[0];
                         close(pipefd[1]);
+                    }
+                    else {
+                        close(pipefd[0]);
                     }
                     currentCmd[0] = '\0';
             }

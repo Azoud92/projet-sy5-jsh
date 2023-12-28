@@ -7,7 +7,7 @@
 #include "jobs.h"
 #include "external_commands.h"
 
-int execute_external_command(char *cmd, char *cmdLine) {
+int execute_external_command(char *cmd, char *cmdLine, bool isPipeBg) {
     int status;
     bool bg = false;
     pid_t pid;
@@ -31,6 +31,15 @@ int execute_external_command(char *cmd, char *cmdLine) {
         bg = true;
         args[i-1] = NULL;
     }
+    
+    if (isPipeBg){
+        execvp(cmd, args);
+        // Si on arrive ici, alors execvp a échoué
+        fprintf(stderr, "Erreur lors de l'exécution de la commande '%s'\n", cmd);
+        free(cmdLineCopy);
+        return 1;
+    }
+
 
     switch (pid = fork()){
         case -1: // Erreur lors de la création du processus

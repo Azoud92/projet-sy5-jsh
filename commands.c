@@ -13,7 +13,7 @@
 
 int lastExitCode = 0;
 
-void execute_command (char *command) {
+void execute_command (char *command, bool isPipeBg) {
     char *saveptr;
     char *cmdCopy = strcpy(malloc(strlen(command) + 1), command);
     char *cmd = strtok_r(command, " ", &saveptr);    
@@ -103,7 +103,7 @@ void execute_command (char *command) {
 
         // --- COMMANDES EXTERNES ---
         else {            
-            lastExitCode = execute_external_command(cmd, cmdCopy);
+            lastExitCode = execute_external_command(cmd, cmdCopy, isPipeBg);
         }        
     }   
 
