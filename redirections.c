@@ -272,25 +272,38 @@ int handle_redirections_for_pipelines(char *cmd, int first, int last) {
 
 int handle_pipelines(char *cmd) {
     char *saveptr;
-    char *token = strtok_r(cmd, " ", &saveptr);
 
+    // Permet de stocker la commande courante (sans les pipes)
     char *currentCmd = malloc(strlen(cmd) + 1);
     if (currentCmd == NULL) {
         perror("malloc");
         return 1;
     }
-
     currentCmd[0] = '\0';
 
+    // Tube anonyme et enregistrement de la dernière entrée (entrée standard par défaut)
     int pipefd[2];
-    pid_t pid;
     int lastIn = STDIN_FILENO;
 
+    // Pour savoir si on est sur la première commande, la dernière commande, ou aucune des deux
     int first = 1;
     int last = 0;
 
+    // Le pid du fils courant
+    pid_t pid;
+
+    // On stocke le pid de chaque fils (commande) pour pouvoir les attendre à la fin
+    pid_t *pids = malloc(sizeof(pid_t));
+    if (pids == NULL) {
+        perror("malloc");
+        free(currentCmd);
+        return 1;
+    }
+    int nb_childs = 0;
+
+    char *token = strtok_r(cmd, " ", &saveptr);
     while (token != NULL) {
-        save_flows();
+        //save_flows();
         if (strcmp("|", token) != 0) { // On est pas sur un pipeline donc on ajoute le token à la commande courante
             strcat(currentCmd, token);
             strcat(currentCmd, " ");
@@ -298,6 +311,7 @@ int handle_pipelines(char *cmd) {
 
         char *next_token = strtok_r(NULL, " ", &saveptr);
         last = (next_token == NULL);
+
         if (strcmp("|", token) == 0 || next_token == NULL) { // On est sur un pipeline ou sur la dernière commande
             if (next_token != NULL) {
                 if (pipe(pipefd) < 0) {
@@ -309,7 +323,8 @@ int handle_pipelines(char *cmd) {
 
             currentCmd[strlen(currentCmd) - 1] = '\0';
 
-            char *cmdCpy = strdup(currentCmd); 
+            // On gère les redirections pour la commande courante
+            char *cmdCpy = strdup(currentCmd);            
             if (handle_redirections_for_pipelines(cmdCpy, first, last) != 0) {
                 free(currentCmd);
                 free(cmdCpy);
@@ -328,15 +343,15 @@ int handle_pipelines(char *cmd) {
                     }
                     if (next_token != NULL) {
                         dup2(pipefd[1], STDOUT_FILENO);
+                        close(pipefd[1]);
                     }
                     close(pipefd[0]);
 
                     char *cmdClean = extract_command(currentCmd);
                     execute_command(cmdClean);
-                    free(cmdClean);               
+                    free(cmdClean);
                     exit(0);
                 default:
-                    wait(NULL);
                     if (lastIn != STDIN_FILENO) {
                         close(lastIn);
                     }
@@ -346,13 +361,19 @@ int handle_pipelines(char *cmd) {
                     }
                     currentCmd[0] = '\0';
             }
+            pids = realloc(pids, (nb_childs + 1) * sizeof(pid_t));
+            pids[nb_childs++] = pid;
             free(cmdCpy);
             first = 0;
         }
-        restore_flows();
+        //restore_flows();
         token = next_token;
     }
 
+    // On attend que le dernier fils se termine
+    waitpid(pid, NULL, 0);
+
+    free(pids);
     free(currentCmd);
     return 0;
 }
