@@ -4,9 +4,11 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include "jobs.h"
-int bg(char *cmd){
+
+int bg(char *cmd) {
     int jobId;
     char *saveptr;
+    
     char *arg = strtok_r(cmd, " ", &saveptr);
     arg = strtok_r(NULL, " ", &saveptr);
     if (arg == NULL) {
@@ -33,7 +35,7 @@ int bg(char *cmd){
         fprintf(stderr, "bg: job not found: %d\n", jobId);
         return 1;
     }
+
     kill(-job->pgid, SIGCONT);
     return 0;
-
 }

@@ -38,3 +38,17 @@ void restore_signals() {
     sigaction(SIGTTOU, &sa_ttou, NULL);
     sigaction(SIGTSTP, &sa, NULL);
 }
+
+void ignore_sigttou() {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = SIG_IGN;
+    sigaction(SIGTTOU, &sa, NULL);
+}
+
+void restore_sigttou() {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = SIG_DFL;
+    sigaction(SIGTTOU, &sa, NULL);
+}

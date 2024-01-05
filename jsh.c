@@ -8,6 +8,7 @@
 #include "jobs.h"
 #include "exit.h"
 #include "signals.h"
+#include <sys/wait.h>
 #define GREEN_COLOR "\001\033[32m\002"
 #define YELLOW_COLOR "\001\033[33m\002"
 #define NORMAL_COLOR "\001\033[00m\002"
@@ -66,7 +67,7 @@ void handle_command (char *command) {
         return;
     }
 
-    execute_command(cleanedCmd);    
+    execute_command(cleanedCmd, false);    
 
     restore_flows();
     free(cleanedCmd);
@@ -93,10 +94,40 @@ int main() {
 
         add_history(cmdLine);
 
-        if (strstr(cmdLine, " | ") != NULL) {
+        if (strstr(cmdLine, " <( ") != NULL) {
+            handle_proc_subst(cmdLine);
+        }
+        else if (strstr(cmdLine, " | ") != NULL) {
             restore_signals();
-            handle_pipelines(cmdLine);
-        } else {
+            char *and = strrchr(cmdLine, '&');
+            if (and != NULL && *(and + 1) == '\0') {
+                *and = '\0';
+
+                pid_t pid = fork();
+                switch (pid) {
+                    case -1:
+                        perror("fork");
+                        lastExitCode = 1;
+                        break;
+
+                    case 0:
+                        Job *job = init_job(getpid(), RUNNING, cmdLine);
+                        setpgid(getpid(), getpid());
+                        addJob(job);
+                        handle_pipelines(cmdLine, true);
+                        break;
+
+                    default:
+                        waitpid(-1, NULL, 0);
+                        break;
+                }
+            }
+            else {
+                handle_pipelines(cmdLine, false);
+            }
+
+        }         
+        else {
             restore_signals();
             handle_command(cmdLine);
         }
@@ -104,7 +135,7 @@ int main() {
         update_job_status(false);
 
         free(prompt);
-        free(cmdLine);        
+        free(cmdLine);
     }
     
     return lastExitCode;

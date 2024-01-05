@@ -4,6 +4,7 @@
 #include <sys/wait.h>
 #include <stdbool.h>
 #include <signal.h>
+
 #define MAX_JOBS 512
 
 enum JobStatus {
@@ -31,7 +32,18 @@ void free_job(Job *job) {
     free(job);
 }
 
-char* statusToString(enum JobStatus status) {
+void remove_spaces_and_newline(char *str) {
+    for (int i = strlen(str) - 1; i >= 0; --i) {
+        if (str[i] == ' ' || str[i] == '\n') {
+            str[i] = '\0';
+        }
+        else {
+            break;
+        }
+    }
+}
+
+char *statusToString(enum JobStatus status) {
     switch (status) {
         case RUNNING:
             return "Running";
@@ -79,7 +91,7 @@ int getNbJobs() {
 
 void updateJobsId() {
     int lastFalseId = 0;
-    for (int i = MAX_JOBS - 1; i >= 0; --i){
+    for (int i = MAX_JOBS - 1; i >= 0; --i) {
         if (!isJob[i]) lastFalseId = i;
     } 
     nextJobId = lastFalseId + 1;
@@ -130,33 +142,26 @@ void update_job_status(bool itsCommandJobs) {
         }
 
         int status;
-        pid_t result = waitpid(job->pgid, &status, WNOHANG | WUNTRACED | WCONTINUED);
+        pid_t result = waitpid(-job->pgid, &status, WNOHANG | WUNTRACED | WCONTINUED);
         if (result == 0) {
             continue;
         }
-        else if (result == -1) {
-            perror("waitpid");
-        } 
-        else {
+        if (result != -1) {
             if (WIFEXITED(status)) {
                 job->status = DONE;
                 isJob[i - 1] = false;
                 print_job(job, !itsCommandJobs);
-                free_job(job);
-
-                
+                free_job(job);                
             }
             else if (WIFSIGNALED(status)) {
                 job->status = KILLED;
                 isJob[i - 1] = false;
                 print_job(job, !itsCommandJobs);
                 free_job(job);
-
             }
             else if (WIFSTOPPED(status)) {
                 job->status = STOPPED;
                 print_job(job, !itsCommandJobs);
-
             }
             else if (WIFCONTINUED(status)) {
                 job->status = RUNNING;
@@ -254,4 +259,93 @@ void removeJob(pid_t pid) {
 
 void printName(Job *job) {
     fprintf(stderr, "%s\n", job->cmd);
+}
+
+void printChildren(int pid, int indent) {
+    char path[256];
+    sprintf(path, "/proc/%d/task/%d/children", pid, pid);
+
+    FILE *file = fopen(path, "r");
+    if (file == NULL) {
+        return;
+    }
+
+    char *line = NULL;
+    size_t len = 0;
+    while (getline(&line, &len, file) != -1) {
+        char *token = strtok(line, " ");
+        while (token != NULL) {
+            pid_t child_pid = atoi(token);
+
+            // Obtenir les informations sur le processus fils
+            char child_path[256], child_state;
+            char *child_status;
+            char child_comm[256];
+            sprintf(child_path, "/proc/%d/stat", child_pid);
+            FILE *child_fp = fopen(child_path, "r");
+            if (child_fp != NULL) {
+                fscanf(child_fp, "%*d %s %c", child_comm, &child_state);
+                child_comm[strlen(child_comm) - 1] = '\0';
+                if (strcmp(child_comm + 1, "jsh") == 0) {
+                    continue;
+                }
+
+                switch (child_state) {
+                    case 'R':
+                        child_status = "Running";
+                        break;
+                    case 'T':
+                    case 't':
+                        child_status = "Stopped";
+                        break;
+                    case 'Z':
+                        child_status = "Zombie";
+                        break;
+                    case 'X':
+                    case 'x':
+                        child_status = "Dead";
+                        break;
+                    case 'S':
+                        child_status = "Sleeping";
+                        break;
+                    default:
+                        child_status = "Unknown";
+                        break;
+                }
+
+                // Affiche les informations sur le processus fils avec la bonne indentation
+                for (int i = 0; i < indent; ++i) {
+                    fprintf(stderr, "    ");
+                }
+                fprintf(stderr, "%d  %s  %s\n", child_pid, child_status, child_comm + 1);
+                fclose(child_fp);
+            }
+
+            // Affiche les processus fils du processus fils
+            printChildren(child_pid, indent + 1);
+
+            token = strtok(NULL, " ");
+        }
+    }
+
+    free(line);
+    fclose(file);
+}
+
+
+int jobs_t() {
+    for (int i = 1; i < MAX_JOBS; ++i) {
+        if (!isJob[i - 1]) {
+            continue;
+        }
+
+        Job *job = getJob(i);
+        if (job == NULL) {
+            continue;
+        }
+
+        print_job(job, true);
+        printChildren(job -> pgid, 1);        
+    }
+    return 0;
 }

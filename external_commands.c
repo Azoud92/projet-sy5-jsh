@@ -5,9 +5,9 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include "jobs.h"
-#include "external_commands.h"
+#include "signals.h"
 
-int execute_external_command(char *cmd, char *cmdLine) {
+int execute_external_command(char *cmd, char *cmdLine, bool isPipeBg) {
     int status;
     bool bg = false;
     pid_t pid;
@@ -31,6 +31,15 @@ int execute_external_command(char *cmd, char *cmdLine) {
         bg = true;
         args[i-1] = NULL;
     }
+    
+    if (isPipeBg){
+        execvp(cmd, args);
+        // Si on arrive ici, alors execvp a échoué
+        fprintf(stderr, "Erreur lors de l'exécution de la commande '%s'\n", cmd);
+        free(cmdLineCopy);
+        return 1;
+    }
+
 
     switch (pid = fork()){
         case -1: // Erreur lors de la création du processus
@@ -39,6 +48,8 @@ int execute_external_command(char *cmd, char *cmdLine) {
             return 1;      
 
         case 0:
+            setpgid(0, 0);            
+
             execvp(cmd, args);
             // Si on arrive ici, alors execvp a échoué
             fprintf(stderr, "Erreur lors de l'exécution de la commande '%s'\n", cmd);
@@ -71,14 +82,22 @@ int execute_external_command(char *cmd, char *cmdLine) {
 
             else {
                 setpgid(pid, pid);
+
+                ignore_sigttou();
+                tcsetpgrp(STDIN_FILENO, pid);
+                restore_sigttou();
+
                 do {
                     waitpid(pid, &status, WUNTRACED);
-                } while (!WIFEXITED(status) && !WIFSTOPPED(status));
+                } while (!WIFEXITED(status) && !WIFSTOPPED(status) && !WIFSIGNALED(status));
 
-                if (WIFSTOPPED(status)) {
+                ignore_sigttou();
+                tcsetpgrp(STDIN_FILENO, getpgrp());
+                restore_sigttou();
+
+                if (WIFSTOPPED(status)) {       
                     //suppression des espaces et saut de ligne de fin de commande
-                    int len = strcspn(cmdLineCopy, " \n");
-                    cmdLineCopy[len] = '\0';
+                    remove_spaces_and_newline(cmdLineCopy);
                     Job *job = init_job(pid, STOPPED, cmdLineCopy);
                     addJob(job);
                     free(cmdLineCopy);
@@ -88,6 +107,11 @@ int execute_external_command(char *cmd, char *cmdLine) {
                 if (WIFEXITED(status)) {
                     free(cmdLineCopy);
                     return WEXITSTATUS(status);
+                }
+
+                if (WIFSIGNALED(status)) {
+                    free(cmdLineCopy);
+                    return WTERMSIG(status);
                 }
 
                 free(cmdLineCopy);

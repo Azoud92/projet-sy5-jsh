@@ -6,10 +6,10 @@
 #include "jobs.h"
 #include <unistd.h>
 
-
 int fg(char *cmd){
     int jobId;
     char *saveptr;
+
     char *arg = strtok_r(cmd, " ", &saveptr);
     arg = strtok_r(NULL, " ", &saveptr);
     if (arg == NULL) {
@@ -36,19 +36,36 @@ int fg(char *cmd){
         fprintf(stderr, "fg: job not found: %d\n", jobId);
         return 1;
     }
+
     pid_t jPid = job->pgid;
     printName(job);
-    removeJob(jPid);
+
     tcsetpgrp(STDIN_FILENO, jPid);
     kill(-jPid, SIGCONT);
+
     int status;
-    while (waitpid(jPid, &status, WUNTRACED) > 0) {
-        if (WIFEXITED(status) || WIFSIGNALED(status)) {
-            break;
-        }
-    }
+    do {
+        waitpid(jPid, &status, WUNTRACED);
+    } while (!WIFEXITED(status) && !WIFSTOPPED(status) && !WIFSIGNALED(status));
+
     tcsetpgrp(STDIN_FILENO, getpgrp());
+
+    if (WIFSTOPPED(status)) {       
+        stopJob(jPid);
+        return WEXITSTATUS(status);
+    }
+    
+    if (WIFEXITED(status)) {
+        removeJob(jPid);
+        return WEXITSTATUS(status);
+    }
+
+    if (WIFSIGNALED(status)) {
+        removeJob(jPid);
+        return WTERMSIG(status);
+    }
+
+    removeJob(jPid);
+
     return 0;
-
-
 }

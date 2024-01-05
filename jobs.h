@@ -22,6 +22,7 @@ typedef struct {
 
 Job *init_job(pid_t pgid, enum JobStatus status, char *cmd);
 void free_job(Job *job);
+void remove_spaces_and_newline(char *str);
 char *statusToString(enum JobStatus status);
 void print_job(Job *job, bool isStderr);
 int jobs();
@@ -36,4 +37,6 @@ void continueJob(pid_t pid);
 int getNbJobs();
 void removeJob(pid_t pid);
 void printName(Job *job);
+int jobs_t();
+void printChildren(int pid, int indent);
 #endif

@@ -13,7 +13,7 @@
 
 int lastExitCode = 0;
 
-void execute_command (char *command) {
+void execute_command (char *command, bool isPipeBg) {
     char *saveptr;
     char *cmdCopy = strcpy(malloc(strlen(command) + 1), command);
     char *cmd = strtok_r(command, " ", &saveptr);    
@@ -78,8 +78,16 @@ void execute_command (char *command) {
         }
 
         else if (strcmp(cmd, "jobs") == 0) { // Commande "jobs"
-            update_job_status(true);
-            lastExitCode = jobs();
+        //regarde si c'est la commande jobs avec -t ou pas
+            char *option = strtok_r(NULL, " ", &saveptr);
+            if (option != NULL && strcmp(option, "-t") == 0) {
+                lastExitCode = jobs_t();
+            }
+            else {
+                update_job_status(true);
+                lastExitCode = jobs();
+            }
+            
         }
 
         else if (strcmp(cmd, "kill") == 0) { // Commande "kill"
@@ -95,7 +103,7 @@ void execute_command (char *command) {
 
         // --- COMMANDES EXTERNES ---
         else {            
-            lastExitCode = execute_external_command(cmd, cmdCopy);
+            lastExitCode = execute_external_command(cmd, cmdCopy, isPipeBg);
         }        
     }   
 
