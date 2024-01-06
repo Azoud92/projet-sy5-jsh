@@ -77,5 +77,9 @@ int cmdKill(char *cmd) {
             return 1;
         }
     }
+    if (sig == SIGTSTP || sig == SIGSTOP){
+        stopJob(pid);
+    }
+    
     return 0;
 }

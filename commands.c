@@ -92,6 +92,7 @@ void execute_command (char *command, bool isPipeBg) {
 
         else if (strcmp(cmd, "kill") == 0) { // Commande "kill"
             lastExitCode = cmdKill(cmdCopy);
+            update_job_status(false);
         }
 
         else if (strcmp(cmd, "bg") == 0) { // Commande "bg"

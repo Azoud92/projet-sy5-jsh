@@ -159,7 +159,7 @@ void update_job_status(bool itsCommandJobs) {
                 print_job(job, !itsCommandJobs);
                 free_job(job);
             }
-            else if (WIFSTOPPED(status)) {
+            else if (WIFSTOPPED(status) && job->status != STOPPED) {
                 job->status = STOPPED;
                 print_job(job, !itsCommandJobs);
             }
@@ -201,6 +201,7 @@ void JobsKilled() {
         }
     }
 } 
+
 
 void killJob(pid_t pid){
     for (int i = 1; i < MAX_JOBS; ++i) {

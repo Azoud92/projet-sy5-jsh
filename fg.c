@@ -5,6 +5,7 @@
 #include <signal.h>
 #include "jobs.h"
 #include <unistd.h>
+#include "signals.h"
 
 int fg(char *cmd){
     int jobId;
@@ -44,6 +45,7 @@ int fg(char *cmd){
     kill(-jPid, SIGCONT);
 
     int status;
+    
     do {
         waitpid(jPid, &status, WUNTRACED);
     } while (!WIFEXITED(status) && !WIFSTOPPED(status) && !WIFSIGNALED(status));
@@ -52,6 +54,16 @@ int fg(char *cmd){
 
     if (WIFSTOPPED(status)) {       
         stopJob(jPid);
+
+        // Ignorer temporairement SIGTTOU
+        ignore_sigttou();
+
+        // Rendre le contrôle du terminal au shell
+        tcsetpgrp(STDIN_FILENO, getpgrp());
+
+        // Rétablir le gestionnaire de signal par défaut pour SIGTTOU
+        restore_sigttou();
+
         return WEXITSTATUS(status);
     }
     

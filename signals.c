@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <string.h>
 
 void ignore_signals() {
     struct sigaction sa;

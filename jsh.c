@@ -79,11 +79,10 @@ int main() {
     int nbJobs;
     while (1) {
         ignore_signals();
+        update_job_status(false);
         nbJobs = getNbJobs();
         char *prompt = get_prompt(30, nbJobs);
         char *cmdLine = readline(prompt);
-        
-        JobsKilled();
 
         if (cmdLine == NULL) {
             free(prompt);
@@ -131,7 +130,6 @@ int main() {
             restore_signals();
             handle_command(cmdLine);
         }
-        
         update_job_status(false);
 
         free(prompt);
