@@ -50,7 +50,9 @@ int fg(char *cmd){
         waitpid(jPid, &status, WUNTRACED);
     } while (!WIFEXITED(status) && !WIFSTOPPED(status) && !WIFSIGNALED(status));
 
+    ignore_sigttou();
     tcsetpgrp(STDIN_FILENO, getpgrp());
+    restore_sigttou();
 
     if (WIFSTOPPED(status)) {       
         stopJob(jPid);
